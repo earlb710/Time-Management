@@ -2,8 +2,10 @@ package com.timemanagement.desktop.gui;
 
 import com.timemanagement.core.data.JsonDataStore;
 import com.timemanagement.core.dataclass.GoogleAccount;
+import com.timemanagement.core.dataclass.GoogleIdentity;
 import com.timemanagement.core.dataclass.GoogleOAuthSession;
 import com.timemanagement.core.dataclass.ManagedProfile;
+import com.timemanagement.core.dataclass.MicrosoftIdentity;
 import com.timemanagement.core.dataclass.MicrosoftOAuthSession;
 import com.timemanagement.core.program.GoogleLoginManager;
 import com.timemanagement.core.program.LocalStorageAccountManager;
@@ -189,14 +191,14 @@ public class DesktopApp {
         googleDriveItem.addActionListener(event -> showDesktopCard(
                 desktopView,
                 GOOGLE_DRIVE_CARD,
-                "Continue with Google login to identify the active user."
+                "Open Google Drive connection settings."
         ));
 
         JMenuItem microsoftDriveItem = new JMenuItem("Connect Microsoft Drive");
         microsoftDriveItem.addActionListener(event -> showDesktopCard(
                 desktopView,
                 MICROSOFT_DRIVE_CARD,
-                "Continue with Microsoft login to identify the active user."
+                "Open Microsoft Drive connection settings."
         ));
 
         storageMenu.add(localStorageItem);
@@ -248,15 +250,67 @@ public class DesktopApp {
                 return;
             }
             if (choice == 0) {
-                preferences.putBoolean(INITIAL_LOGIN_PROMPT_COMPLETED_KEY, true);
-                showDesktopCard(desktopView, GOOGLE_DRIVE_CARD, "Continue with Google login to identify the active user.");
+                if (!promptForGoogleEmailLogin(frame, desktopView)) {
+                    frame.dispose();
+                }
                 return;
             }
             if (choice == 1) {
-                preferences.putBoolean(INITIAL_LOGIN_PROMPT_COMPLETED_KEY, true);
-                showDesktopCard(desktopView, MICROSOFT_DRIVE_CARD, "Continue with Microsoft login to identify the active user.");
+                if (!promptForMicrosoftEmailLogin(frame, desktopView)) {
+                    frame.dispose();
+                }
                 return;
             }
+        }
+    }
+
+    private boolean promptForGoogleEmailLogin(JFrame frame, DesktopView desktopView) {
+        while (true) {
+            String email = promptForLoginEmail(frame, "Google sign-in", "Enter the Google email address you want to use for login.");
+            if (email == null) {
+                return false;
+            }
+            try {
+                GoogleAccount account = googleLoginManager.login(new GoogleIdentity(email, email, email));
+                updateActiveAccount(account, desktopView.storageStatusLabel(), desktopView.profileListModel(), desktopView.addProfileButton());
+                preferences.putBoolean(INITIAL_LOGIN_PROMPT_COMPLETED_KEY, true);
+                desktopView.cardLayout().show(desktopView.pagePanel(), LOCAL_STORAGE_CARD);
+                return true;
+            } catch (RuntimeException ex) {
+                JOptionPane.showMessageDialog(frame, ex.getMessage(), "Google sign-in failed", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    }
+
+    private boolean promptForMicrosoftEmailLogin(JFrame frame, DesktopView desktopView) {
+        while (true) {
+            String email = promptForLoginEmail(frame, "Microsoft sign-in", "Enter the Microsoft email address you want to use for login.");
+            if (email == null) {
+                return false;
+            }
+            try {
+                GoogleAccount account = microsoftLoginManager.login(new MicrosoftIdentity(email, email, email));
+                updateActiveAccount(account, desktopView.storageStatusLabel(), desktopView.profileListModel(), desktopView.addProfileButton());
+                preferences.putBoolean(INITIAL_LOGIN_PROMPT_COMPLETED_KEY, true);
+                desktopView.cardLayout().show(desktopView.pagePanel(), LOCAL_STORAGE_CARD);
+                return true;
+            } catch (RuntimeException ex) {
+                JOptionPane.showMessageDialog(frame, ex.getMessage(), "Microsoft sign-in failed", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    }
+
+    private String promptForLoginEmail(Component parent, String title, String message) {
+        while (true) {
+            String email = JOptionPane.showInputDialog(parent, message, title, JOptionPane.PLAIN_MESSAGE);
+            if (email == null) {
+                return null;
+            }
+            String normalized = normalizeLoginEmail(email);
+            if (normalized != null) {
+                return normalized;
+            }
+            JOptionPane.showMessageDialog(parent, "Enter a valid email address.", title, JOptionPane.ERROR_MESSAGE);
         }
     }
 
@@ -569,9 +623,9 @@ public class DesktopApp {
         currentAccount = account;
         String provider = account.getProvider() == null ? "" : account.getProvider().trim().toLowerCase();
         if ("google".equals(provider)) {
-            storageStatusLabel.setText("Connected to Google Drive as " + account.getDisplayName() + ". Local profiles stay available.");
+            storageStatusLabel.setText("Signed in with Google as " + account.getDisplayName() + ". Local profiles stay available.");
         } else if ("microsoft".equals(provider)) {
-            storageStatusLabel.setText("Connected to Microsoft Drive as " + account.getDisplayName() + ". Local profiles stay available.");
+            storageStatusLabel.setText("Signed in with Microsoft as " + account.getDisplayName() + ". Local profiles stay available.");
         } else {
             storageStatusLabel.setText("Using local storage on this device. Open the Storage menu to connect Google Drive or Microsoft Drive.");
         }
@@ -595,6 +649,12 @@ public class DesktopApp {
 
     private String valueOrEmpty(String value) {
         return value == null ? "" : value;
+    }
+
+    private String normalizeLoginEmail(String value) {
+        String email = value == null ? "" : value.trim().toLowerCase();
+        int atIndex = email.indexOf('@');
+        return atIndex > 0 && atIndex < email.length() - 1 ? email : null;
     }
 
     private record DesktopView(JPanel panel,

@@ -3,6 +3,8 @@ package com.timemanagement.android;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.text.InputType;
+import android.util.Patterns;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -22,8 +24,10 @@ import com.timemanagement.core.data.JsonDataStore;
 import com.timemanagement.core.dataclass.GoogleAccount;
 import com.timemanagement.core.dataclass.GoogleIdentity;
 import com.timemanagement.core.dataclass.ManagedProfile;
+import com.timemanagement.core.dataclass.MicrosoftIdentity;
 import com.timemanagement.core.program.GoogleLoginManager;
 import com.timemanagement.core.program.LocalStorageAccountManager;
+import com.timemanagement.core.program.MicrosoftLoginManager;
 import com.timemanagement.core.program.ProfileManager;
 import com.google.android.gms.auth.api.signin.GoogleSignIn;
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
@@ -46,6 +50,7 @@ public class MainActivity extends AppCompatActivity {
     private static final String MICROSOFT_CLIENT_ID_KEY = "microsoft-client-id";
 
     private GoogleLoginManager googleLoginManager;
+    private MicrosoftLoginManager microsoftLoginManager;
     private ProfileManager profileManager;
     private LocalStorageAccountManager localStorageAccountManager;
     private GoogleSignInClient googleSignInClient;
@@ -83,6 +88,7 @@ public class MainActivity extends AppCompatActivity {
         dataDirectory = getFilesDir().toPath().resolve("data");
         JsonDataStore dataStore = new JsonDataStore(dataDirectory);
         googleLoginManager = new GoogleLoginManager(dataStore);
+        microsoftLoginManager = new MicrosoftLoginManager(dataStore);
         profileManager = new ProfileManager(dataStore);
         localStorageAccountManager = new LocalStorageAccountManager(dataStore);
         googleSignInClient = GoogleSignIn.getClient(
@@ -189,6 +195,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void handleGoogleSignInResult(Intent data) {
         try {
+            boolean completingInitialLogin = !preferences.getBoolean(INITIAL_LOGIN_PROMPT_COMPLETED_KEY, false);
             GoogleSignInAccount signedInAccount = GoogleSignIn.getSignedInAccountFromIntent(data)
                     .getResult(ApiException.class);
             if (signedInAccount == null || signedInAccount.getId() == null || signedInAccount.getEmail() == null) {
@@ -201,11 +208,18 @@ public class MainActivity extends AppCompatActivity {
                     signedInAccount.getDisplayName()
             ));
             updateActiveAccount(account);
+            preferences.edit().putBoolean(INITIAL_LOGIN_PROMPT_COMPLETED_KEY, true).apply();
+            if (completingInitialLogin) {
+                showSection(localStorageSection, getString(R.string.local_storage_default_status));
+            }
             googleSetupStatus.setText(getString(R.string.google_drive_connected_as, describeAccount(account)));
             signOutGoogleButton.setEnabled(true);
         } catch (ApiException | RuntimeException e) {
             Toast.makeText(this, getString(R.string.error_google_sign_in_failed), Toast.LENGTH_LONG).show();
             refreshGoogleSignInState();
+            if (!preferences.getBoolean(INITIAL_LOGIN_PROMPT_COMPLETED_KEY, false)) {
+                maybePromptForInitialLogin();
+            }
         }
     }
 
@@ -229,16 +243,41 @@ public class MainActivity extends AppCompatActivity {
                 .setMessage(R.string.initial_login_dialog_message)
                 .setCancelable(false)
                 .setPositiveButton(R.string.button_continue_with_google, (dialog, which) -> {
-                    preferences.edit().putBoolean(INITIAL_LOGIN_PROMPT_COMPLETED_KEY, true).apply();
-                    refreshGoogleSignInState();
-                    showSection(googleDriveSection, getString(R.string.google_drive_title));
                     signInWithGoogle();
                 })
                 .setNegativeButton(R.string.button_continue_with_microsoft, (dialog, which) -> {
-                    preferences.edit().putBoolean(INITIAL_LOGIN_PROMPT_COMPLETED_KEY, true).apply();
-                    showSection(microsoftDriveSection, getString(R.string.microsoft_drive_title));
+                    promptForMicrosoftEmailLogin();
                 })
                 .show();
+    }
+
+    private void promptForMicrosoftEmailLogin() {
+        EditText emailField = new EditText(this);
+        emailField.setHint(R.string.hint_login_email);
+        emailField.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.microsoft_login_dialog_title)
+                .setMessage(R.string.microsoft_login_dialog_message)
+                .setView(emailField)
+                .setCancelable(false)
+                .setPositiveButton(R.string.button_sign_in, (dialog, which) -> {
+                    String email = normalizeLoginEmail(emailField.getText().toString());
+                    if (email == null) {
+                        Toast.makeText(this, getString(R.string.error_login_email_required), Toast.LENGTH_LONG).show();
+                        maybePromptForInitialLogin();
+                        return;
+                    }
+                    GoogleAccount account = microsoftLoginManager.login(new MicrosoftIdentity(email, email, email));
+                    updateActiveAccount(account);
+                    preferences.edit().putBoolean(INITIAL_LOGIN_PROMPT_COMPLETED_KEY, true).apply();
+                    showSection(localStorageSection, getString(R.string.local_storage_default_status));
+                })
+                .show();
+    }
+
+    private String normalizeLoginEmail(String value) {
+        String email = value == null ? "" : value.trim().toLowerCase();
+        return Patterns.EMAIL_ADDRESS.matcher(email).matches() ? email : null;
     }
 
     private void saveMicrosoftSetup() {

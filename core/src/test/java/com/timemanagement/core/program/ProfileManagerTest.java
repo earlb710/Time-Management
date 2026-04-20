@@ -46,6 +46,17 @@ class ProfileManagerTest {
     }
 
     @Test
+    void reusesExistingGoogleAccountWhenOAuthAndEmailLoginShareEmail() {
+        JsonDataStore dataStore = new JsonDataStore(tempDir);
+        GoogleLoginManager loginManager = new GoogleLoginManager(dataStore);
+
+        GoogleAccount emailLogin = loginManager.login(new GoogleIdentity("person@gmail.com", "person@gmail.com", "person@gmail.com"));
+        GoogleAccount oauthLogin = loginManager.login(new GoogleIdentity("google-subject-2", "person@gmail.com", "Person"));
+
+        assertEquals(emailLogin.getAccountId(), oauthLogin.getAccountId());
+    }
+
+    @Test
     void rejectsMissingSubjectId() {
         JsonDataStore dataStore = new JsonDataStore(tempDir);
         GoogleLoginManager loginManager = new GoogleLoginManager(dataStore);
@@ -69,6 +80,17 @@ class ProfileManagerTest {
         List<ManagedProfile> profiles = profileManager.listProfiles(account.getAccountId());
         assertEquals(1, profiles.size());
         assertEquals("microsoft", account.getProvider());
+    }
+
+    @Test
+    void reusesExistingMicrosoftAccountWhenOAuthAndEmailLoginShareEmail() {
+        JsonDataStore dataStore = new JsonDataStore(tempDir);
+        MicrosoftLoginManager loginManager = new MicrosoftLoginManager(dataStore);
+
+        GoogleAccount emailLogin = loginManager.login(new MicrosoftIdentity("person@outlook.com", "person@outlook.com", "person@outlook.com"));
+        GoogleAccount oauthLogin = loginManager.login(new MicrosoftIdentity("aad-subject-2", "person@outlook.com", "Person"));
+
+        assertEquals(emailLogin.getAccountId(), oauthLogin.getAccountId());
     }
 
     @Test

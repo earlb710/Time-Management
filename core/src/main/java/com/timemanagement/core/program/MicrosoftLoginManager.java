@@ -26,11 +26,23 @@ public class MicrosoftLoginManager {
         Map<String, GoogleAccount> accounts = dataStore.loadAccounts();
         GoogleAccount account = accounts.get(accountId);
         if (account == null) {
+            account = findExistingAccount(accounts, email);
+        }
+        if (account == null) {
             account = new GoogleAccount(accountId, PROVIDER, email, displayName);
             accounts.put(accountId, account);
             dataStore.saveAccounts(accounts);
         }
         return account;
+    }
+
+    private GoogleAccount findExistingAccount(Map<String, GoogleAccount> accounts, String email) {
+        for (GoogleAccount account : accounts.values()) {
+            if (PROVIDER.equals(account.getProvider()) && email.equalsIgnoreCase(account.getEmail())) {
+                return account;
+            }
+        }
+        return null;
     }
 
     private String requireValue(String value, String message) {

@@ -5,9 +5,14 @@
     <string name="menu_connect_google_drive">Connect Google Drive</string>
     <string name="menu_connect_microsoft_drive">Connect Microsoft Drive</string>
     <string name="initial_login_dialog_title">Choose a login</string>
-    <string name="initial_login_dialog_message">The first time you open the app, start by choosing Google or Microsoft login.</string>
+    <string name="initial_login_dialog_message">The first time you open the app, sign in with Google or Microsoft. Drive OAuth setup is only needed later if you connect Drive.</string>
     <string name="button_continue_with_google">Google</string>
     <string name="button_continue_with_microsoft">Microsoft</string>
+    <string name="microsoft_login_dialog_title">Microsoft sign-in</string>
+    <string name="microsoft_login_dialog_message">Enter the Microsoft email address you want to use for login.</string>
+    <string name="hint_login_email">name@example.com</string>
+    <string name="button_sign_in">Sign in</string>
+    <string name="error_login_email_required">Enter a valid email address.</string>
 
     <string name="local_storage_default_status">Using local storage by default on this device.</string>
     <string name="local_storage_title">Local Storage</string>
