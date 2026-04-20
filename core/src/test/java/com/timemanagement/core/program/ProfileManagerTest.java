@@ -4,6 +4,7 @@ import com.timemanagement.core.data.JsonDataStore;
 import com.timemanagement.core.dataclass.GoogleAccount;
 import com.timemanagement.core.dataclass.GoogleIdentity;
 import com.timemanagement.core.dataclass.ManagedProfile;
+import com.timemanagement.core.dataclass.MicrosoftIdentity;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -53,5 +54,20 @@ class ProfileManagerTest {
                 () -> loginManager.login(new GoogleIdentity(" ", "person@gmail.com", "Person")));
 
         assertTrue(error.getMessage().contains("subject id"));
+    }
+
+    @Test
+    void allowsProfilesForMicrosoftLogin() {
+        JsonDataStore dataStore = new JsonDataStore(tempDir);
+        MicrosoftLoginManager loginManager = new MicrosoftLoginManager(dataStore);
+        ProfileManager profileManager = new ProfileManager(dataStore);
+
+        GoogleAccount account = loginManager.login(new MicrosoftIdentity("aad-subject-1", "person@outlook.com", "Person"));
+
+        profileManager.createProfile(account.getAccountId(), "Work Files", "person");
+
+        List<ManagedProfile> profiles = profileManager.listProfiles(account.getAccountId());
+        assertEquals(1, profiles.size());
+        assertEquals("microsoft", account.getProvider());
     }
 }

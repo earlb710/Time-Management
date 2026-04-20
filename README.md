@@ -10,7 +10,9 @@ Minimal starter implementation matching the requested architecture:
 ## Implemented requirements
 
 - Desktop Google OAuth 2.0 sign-in flow with browser consent, access tokens, refresh tokens, and encrypted local session storage
+- Desktop Microsoft OAuth 2.0 sign-in flow with browser consent, access tokens, refresh tokens, and encrypted local session storage
 - Shared Google identity/session models so platform-specific sign-in flows can hand real OAuth identities into shared core logic
+- Shared Microsoft identity/session models so platform-specific sign-in flows can hand real OAuth identities into shared core logic
 - Multiple profiles per signed-in login
 - Shared non-GUI logic across desktop and android modules
 
@@ -34,6 +36,29 @@ The desktop flow requests these scopes:
 - `https://www.googleapis.com/auth/drive.file`
 
 The Android module is still a placeholder module in this repository, but it now accepts real `GoogleIdentity` / `GoogleOAuthSession` objects from an Android-specific sign-in flow so a real Android app can plug in platform-native credential storage separately.
+
+## Microsoft OAuth desktop setup
+
+Set a Microsoft OAuth client id before using Microsoft sign-in:
+
+```bash
+export TIME_MANAGEMENT_MICROSOFT_CLIENT_ID=your-microsoft-client-id
+```
+
+The desktop UI stores the encrypted Microsoft OAuth session separately at:
+
+- `~/.time-management/microsoft-oauth-session.enc`
+
+The Microsoft desktop flow requests these scopes:
+
+- `openid`
+- `email`
+- `profile`
+- `offline_access`
+- `User.Read`
+- `Files.ReadWrite.AppFolder`
+
+The Android module also accepts real `MicrosoftIdentity` / `MicrosoftOAuthSession` objects so a real Android app can plug in platform-native credential storage separately for Microsoft accounts too.
 
 ## Run tests
 

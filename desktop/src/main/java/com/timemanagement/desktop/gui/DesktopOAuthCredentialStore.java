@@ -3,8 +3,6 @@ package com.timemanagement.desktop.gui;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import com.timemanagement.core.dataclass.GoogleOAuthSession;
-
 import javax.crypto.AEADBadTagException;
 import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
@@ -24,29 +22,33 @@ import java.util.EnumSet;
 import java.util.Optional;
 import java.util.Set;
 
-public class DesktopOAuthCredentialStore {
+public class DesktopOAuthCredentialStore<T> {
     private static final int SALT_LENGTH = 16;
     private static final int IV_LENGTH = 12;
     private static final int KEY_LENGTH = 256;
     private static final int PBKDF2_ITERATIONS = 210_000;
 
     private final Path sessionPath;
+    private final Class<T> sessionType;
+    private final String sessionLabel;
     private final ObjectMapper mapper;
     private final SecureRandom secureRandom;
 
-    public DesktopOAuthCredentialStore(Path sessionPath) {
-        this(sessionPath, new SecureRandom());
+    public DesktopOAuthCredentialStore(Path sessionPath, Class<T> sessionType, String sessionLabel) {
+        this(sessionPath, sessionType, sessionLabel, new SecureRandom());
     }
 
-    DesktopOAuthCredentialStore(Path sessionPath, SecureRandom secureRandom) {
+    DesktopOAuthCredentialStore(Path sessionPath, Class<T> sessionType, String sessionLabel, SecureRandom secureRandom) {
         this.sessionPath = sessionPath;
+        this.sessionType = sessionType;
+        this.sessionLabel = sessionLabel;
         this.secureRandom = secureRandom;
         this.mapper = new ObjectMapper()
                 .registerModule(new JavaTimeModule())
                 .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
     }
 
-    public Optional<GoogleOAuthSession> load(char[] passphrase) {
+    public Optional<T> load(char[] passphrase) {
         requirePassphrase(passphrase);
         if (!Files.exists(sessionPath)) {
             return Optional.empty();
@@ -61,15 +63,15 @@ public class DesktopOAuthCredentialStore {
             Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
             cipher.init(Cipher.DECRYPT_MODE, key, new GCMParameterSpec(128, iv));
             byte[] plaintext = cipher.doFinal(ciphertext);
-            return Optional.of(mapper.readValue(plaintext, GoogleOAuthSession.class));
+            return Optional.of(mapper.readValue(plaintext, sessionType));
         } catch (AEADBadTagException e) {
-            throw new IllegalArgumentException("Could not unlock the saved Google session with the provided passphrase.", e);
+            throw new IllegalArgumentException("Could not unlock the saved " + sessionLabel + " session with the provided passphrase.", e);
         } catch (IOException | GeneralSecurityException e) {
-            throw new IllegalStateException("Could not load the saved Google session.", e);
+            throw new IllegalStateException("Could not load the saved " + sessionLabel + " session.", e);
         }
     }
 
-    public void save(GoogleOAuthSession session, char[] passphrase) {
+    public void save(T session, char[] passphrase) {
         requirePassphrase(passphrase);
         if (session == null) {
             throw new IllegalArgumentException("OAuth session is required.");
@@ -96,7 +98,7 @@ public class DesktopOAuthCredentialStore {
             mapper.writerWithDefaultPrettyPrinter().writeValue(sessionPath.toFile(), envelope);
             tightenPermissions();
         } catch (IOException | GeneralSecurityException e) {
-            throw new IllegalStateException("Could not save the Google session securely.", e);
+            throw new IllegalStateException("Could not save the " + sessionLabel + " session securely.", e);
         }
     }
 
@@ -104,7 +106,7 @@ public class DesktopOAuthCredentialStore {
         try {
             Files.deleteIfExists(sessionPath);
         } catch (IOException e) {
-            throw new IllegalStateException("Could not remove the saved Google session.", e);
+            throw new IllegalStateException("Could not remove the saved " + sessionLabel + " session.", e);
         }
     }
 

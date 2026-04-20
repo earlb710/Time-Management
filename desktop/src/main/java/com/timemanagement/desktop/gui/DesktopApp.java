@@ -4,7 +4,9 @@ import com.timemanagement.core.data.JsonDataStore;
 import com.timemanagement.core.dataclass.GoogleAccount;
 import com.timemanagement.core.dataclass.GoogleOAuthSession;
 import com.timemanagement.core.dataclass.ManagedProfile;
+import com.timemanagement.core.dataclass.MicrosoftOAuthSession;
 import com.timemanagement.core.program.GoogleLoginManager;
+import com.timemanagement.core.program.MicrosoftLoginManager;
 import com.timemanagement.core.program.ProfileManager;
 
 import javax.imageio.ImageIO;
@@ -16,17 +18,30 @@ import java.nio.file.Path;
 import java.util.Arrays;
 
 public class DesktopApp {
-    private final GoogleLoginManager loginManager;
+    private final GoogleLoginManager googleLoginManager;
+    private final MicrosoftLoginManager microsoftLoginManager;
     private final ProfileManager profileManager;
-    private final DesktopOAuthCredentialStore credentialStore;
+    private final DesktopOAuthCredentialStore<GoogleOAuthSession> googleCredentialStore;
+    private final DesktopOAuthCredentialStore<MicrosoftOAuthSession> microsoftCredentialStore;
     private GoogleAccount currentAccount;
 
     public DesktopApp(Path dataDir) {
         JsonDataStore dataStore = new JsonDataStore(dataDir);
-        this.loginManager = new GoogleLoginManager(dataStore);
+        this.googleLoginManager = new GoogleLoginManager(dataStore);
+        this.microsoftLoginManager = new MicrosoftLoginManager(dataStore);
         this.profileManager = new ProfileManager(dataStore);
-        Path oauthSessionPath = Path.of(System.getProperty("user.home"), ".time-management", "google-oauth-session.enc");
-        this.credentialStore = new DesktopOAuthCredentialStore(oauthSessionPath);
+
+        Path oauthDirectory = Path.of(System.getProperty("user.home"), ".time-management");
+        this.googleCredentialStore = new DesktopOAuthCredentialStore(
+                oauthDirectory.resolve("google-oauth-session.enc"),
+                GoogleOAuthSession.class,
+                "Google OAuth"
+        );
+        this.microsoftCredentialStore = new DesktopOAuthCredentialStore(
+                oauthDirectory.resolve("microsoft-oauth-session.enc"),
+                MicrosoftOAuthSession.class,
+                "Microsoft OAuth"
+        );
     }
 
     public static void main(String[] args) {
@@ -85,20 +100,26 @@ public class DesktopApp {
     private JPanel createContentPanel() {
         JPanel panel = new JPanel(new BorderLayout(8, 8));
 
-        JPanel loginPanel = new JPanel(new GridLayout(4, 2, 6, 6));
+        JPanel loginPanel = new JPanel(new GridLayout(0, 2, 6, 6));
         JPasswordField passphraseField = new JPasswordField();
-        JButton loginButton = new JButton("Sign in with Google");
-        JButton restoreButton = new JButton("Use Saved Session");
-        JButton clearSessionButton = new JButton("Forget Saved Session");
+        JButton googleLoginButton = new JButton("Sign in with Google");
+        JButton googleRestoreButton = new JButton("Use Saved Google Session");
+        JButton googleClearButton = new JButton("Forget Saved Google Session");
+        JButton microsoftLoginButton = new JButton("Sign in with Microsoft");
+        JButton microsoftRestoreButton = new JButton("Use Saved Microsoft Session");
+        JButton microsoftClearButton = new JButton("Forget Saved Microsoft Session");
         JLabel accountLabel = new JLabel("Not signed in");
 
         loginPanel.add(new JLabel("Credential passphrase:"));
         loginPanel.add(passphraseField);
-        loginPanel.add(loginButton);
-        loginPanel.add(restoreButton);
-        loginPanel.add(clearSessionButton);
+        loginPanel.add(googleLoginButton);
+        loginPanel.add(googleRestoreButton);
+        loginPanel.add(googleClearButton);
+        loginPanel.add(microsoftLoginButton);
+        loginPanel.add(microsoftRestoreButton);
+        loginPanel.add(microsoftClearButton);
         loginPanel.add(accountLabel);
-        loginPanel.add(new JLabel("Requires TIME_MANAGEMENT_GOOGLE_CLIENT_ID"));
+        loginPanel.add(new JLabel("Requires TIME_MANAGEMENT_GOOGLE_CLIENT_ID and/or TIME_MANAGEMENT_MICROSOFT_CLIENT_ID"));
 
         DefaultListModel<String> profileListModel = new DefaultListModel<>();
         JList<String> profileList = new JList<>(profileListModel);
@@ -115,42 +136,75 @@ public class DesktopApp {
         profileInput.add(addProfileButton);
         profileInput.add(new JLabel("Multiple profiles per login are supported."));
 
-        loginButton.addActionListener(event -> {
+        googleLoginButton.addActionListener(event -> {
             char[] passphrase = readPassphrase(passphraseField);
             try {
-                GoogleOAuthSession session = oauthService().signIn(passphrase);
-                currentAccount = loginManager.login(session.getIdentity());
+                GoogleOAuthSession session = googleOAuthService().signIn(passphrase);
+                currentAccount = googleLoginManager.login(session.getIdentity());
                 updateSignedInState(accountLabel, profileListModel, addProfileButton);
             } catch (RuntimeException ex) {
-                JOptionPane.showMessageDialog(panel, ex.getMessage(), "Login failed", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(panel, ex.getMessage(), "Google login failed", JOptionPane.ERROR_MESSAGE);
             } finally {
                 Arrays.fill(passphrase, '\0');
             }
         });
 
-        restoreButton.addActionListener(event -> {
+        googleRestoreButton.addActionListener(event -> {
             char[] passphrase = readPassphrase(passphraseField);
             try {
-                GoogleOAuthSession session = oauthService().restoreSession(passphrase)
+                GoogleOAuthSession session = googleOAuthService().restoreSession(passphrase)
                         .orElseThrow(() -> new IllegalStateException("No saved Google session was found."));
-                currentAccount = loginManager.login(session.getIdentity());
+                currentAccount = googleLoginManager.login(session.getIdentity());
                 updateSignedInState(accountLabel, profileListModel, addProfileButton);
             } catch (RuntimeException ex) {
-                JOptionPane.showMessageDialog(panel, ex.getMessage(), "Restore failed", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(panel, ex.getMessage(), "Google restore failed", JOptionPane.ERROR_MESSAGE);
             } finally {
                 Arrays.fill(passphrase, '\0');
             }
         });
 
-        clearSessionButton.addActionListener(event -> {
+        googleClearButton.addActionListener(event -> {
             try {
-                credentialStore.clear();
-                currentAccount = null;
-                accountLabel.setText("Not signed in");
-                profileListModel.clear();
-                addProfileButton.setEnabled(false);
+                googleCredentialStore.clear();
+                clearCurrentAccountIfProvider("google", accountLabel, profileListModel, addProfileButton);
             } catch (RuntimeException ex) {
-                JOptionPane.showMessageDialog(panel, ex.getMessage(), "Sign out failed", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(panel, ex.getMessage(), "Google sign out failed", JOptionPane.ERROR_MESSAGE);
+            }
+        });
+
+        microsoftLoginButton.addActionListener(event -> {
+            char[] passphrase = readPassphrase(passphraseField);
+            try {
+                MicrosoftOAuthSession session = microsoftOAuthService().signIn(passphrase);
+                currentAccount = microsoftLoginManager.login(session.getIdentity());
+                updateSignedInState(accountLabel, profileListModel, addProfileButton);
+            } catch (RuntimeException ex) {
+                JOptionPane.showMessageDialog(panel, ex.getMessage(), "Microsoft login failed", JOptionPane.ERROR_MESSAGE);
+            } finally {
+                Arrays.fill(passphrase, '\0');
+            }
+        });
+
+        microsoftRestoreButton.addActionListener(event -> {
+            char[] passphrase = readPassphrase(passphraseField);
+            try {
+                MicrosoftOAuthSession session = microsoftOAuthService().restoreSession(passphrase)
+                        .orElseThrow(() -> new IllegalStateException("No saved Microsoft session was found."));
+                currentAccount = microsoftLoginManager.login(session.getIdentity());
+                updateSignedInState(accountLabel, profileListModel, addProfileButton);
+            } catch (RuntimeException ex) {
+                JOptionPane.showMessageDialog(panel, ex.getMessage(), "Microsoft restore failed", JOptionPane.ERROR_MESSAGE);
+            } finally {
+                Arrays.fill(passphrase, '\0');
+            }
+        });
+
+        microsoftClearButton.addActionListener(event -> {
+            try {
+                microsoftCredentialStore.clear();
+                clearCurrentAccountIfProvider("microsoft", accountLabel, profileListModel, addProfileButton);
+            } catch (RuntimeException ex) {
+                JOptionPane.showMessageDialog(panel, ex.getMessage(), "Microsoft sign out failed", JOptionPane.ERROR_MESSAGE);
             }
         });
 
@@ -176,7 +230,7 @@ public class DesktopApp {
         panel.add(loginPanel, BorderLayout.NORTH);
         panel.add(new JScrollPane(profileList), BorderLayout.CENTER);
         panel.add(profileInput, BorderLayout.SOUTH);
-        panel.setPreferredSize(new Dimension(640, 420));
+        panel.setPreferredSize(new Dimension(740, 460));
         return panel;
     }
 
@@ -189,13 +243,32 @@ public class DesktopApp {
     }
 
     private void updateSignedInState(JLabel accountLabel, DefaultListModel<String> profileListModel, JButton addProfileButton) {
-        accountLabel.setText("Signed in as " + currentAccount.getDisplayName());
+        String provider = currentAccount.getProvider() == null || currentAccount.getProvider().isBlank()
+                ? "account"
+                : currentAccount.getProvider();
+        accountLabel.setText("Signed in with " + provider + " as " + currentAccount.getDisplayName());
         refreshProfiles(profileListModel);
         addProfileButton.setEnabled(true);
     }
 
-    private DesktopGoogleOAuthService oauthService() {
-        return new DesktopGoogleOAuthService(DesktopOAuthClientConfig.loadFromEnvironment(), credentialStore);
+    private void clearCurrentAccountIfProvider(String provider,
+                                               JLabel accountLabel,
+                                               DefaultListModel<String> profileListModel,
+                                               JButton addProfileButton) {
+        if (currentAccount != null && provider.equals(currentAccount.getProvider())) {
+            currentAccount = null;
+            accountLabel.setText("Not signed in");
+            profileListModel.clear();
+            addProfileButton.setEnabled(false);
+        }
+    }
+
+    private DesktopGoogleOAuthService googleOAuthService() {
+        return new DesktopGoogleOAuthService(DesktopOAuthClientConfig.loadGoogleFromEnvironment(), googleCredentialStore);
+    }
+
+    private DesktopMicrosoftOAuthService microsoftOAuthService() {
+        return new DesktopMicrosoftOAuthService(DesktopOAuthClientConfig.loadMicrosoftFromEnvironment(), microsoftCredentialStore);
     }
 
     private void refreshProfiles(DefaultListModel<String> profileListModel) {

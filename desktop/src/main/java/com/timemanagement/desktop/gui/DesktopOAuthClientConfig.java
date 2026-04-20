@@ -3,27 +3,47 @@ package com.timemanagement.desktop.gui;
 import java.util.List;
 
 public class DesktopOAuthClientConfig {
-    private static final List<String> DEFAULT_SCOPES = List.of(
+    private static final List<String> GOOGLE_DEFAULT_SCOPES = List.of(
             "openid",
             "email",
             "profile",
             "https://www.googleapis.com/auth/drive.file"
+    );
+    private static final List<String> MICROSOFT_DEFAULT_SCOPES = List.of(
+            "openid",
+            "email",
+            "profile",
+            "offline_access",
+            "User.Read",
+            "Files.ReadWrite.AppFolder"
     );
 
     private final String clientId;
     private final List<String> scopes;
 
     public DesktopOAuthClientConfig(String clientId, List<String> scopes) {
-        this.clientId = requireValue(clientId, "A Google OAuth client id is required.");
-        this.scopes = scopes == null || scopes.isEmpty() ? DEFAULT_SCOPES : List.copyOf(scopes);
+        this.clientId = requireValue(clientId, "An OAuth client id is required.");
+        this.scopes = scopes == null || scopes.isEmpty() ? List.of() : List.copyOf(scopes);
     }
 
-    public static DesktopOAuthClientConfig loadFromEnvironment() {
-        String clientId = firstPresent(
-                System.getProperty("time.management.googleClientId"),
-                System.getenv("TIME_MANAGEMENT_GOOGLE_CLIENT_ID")
+    public static DesktopOAuthClientConfig loadGoogleFromEnvironment() {
+        return new DesktopOAuthClientConfig(
+                firstPresent(
+                        System.getProperty("time.management.googleClientId"),
+                        System.getenv("TIME_MANAGEMENT_GOOGLE_CLIENT_ID")
+                ),
+                GOOGLE_DEFAULT_SCOPES
         );
-        return new DesktopOAuthClientConfig(clientId, DEFAULT_SCOPES);
+    }
+
+    public static DesktopOAuthClientConfig loadMicrosoftFromEnvironment() {
+        return new DesktopOAuthClientConfig(
+                firstPresent(
+                        System.getProperty("time.management.microsoftClientId"),
+                        System.getenv("TIME_MANAGEMENT_MICROSOFT_CLIENT_ID")
+                ),
+                MICROSOFT_DEFAULT_SCOPES
+        );
     }
 
     public String getClientId() {
