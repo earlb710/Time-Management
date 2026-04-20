@@ -45,6 +45,7 @@
     <string name="label_microsoft_client_id">Microsoft OAuth client id</string>
     <string name="hint_microsoft_client_id">your-microsoft-client-id</string>
     <string name="label_microsoft_passphrase">Credential passphrase</string>
+    <string name="hint_oauth_passphrase">Used to protect saved local sessions</string>
     <string name="microsoft_drive_setup_default_status">Enter the Microsoft client id and passphrase you want to use for Drive setup.</string>
     <string name="button_save_microsoft_setup">Save Microsoft setup</string>
     <string name="button_clear_microsoft_setup">Clear Microsoft setup</string>
