@@ -80,7 +80,9 @@ Open `/home/runner/work/Time-Management/Time-Management` in Android Studio as a 
 - `Desktop App` → launches `com.timemanagement.desktop.gui.DesktopApp`
 - `Android Placeholder App` → launches `com.timemanagement.android.gui.AndroidPlaceholderApp`
 
-Both run configurations use the repository root as the working directory so the existing `data/` folder is resolved correctly.
+Both run configurations are Maven-based, build any required reactor modules automatically, and use the repository root as the working directory so the existing `data/` folder is resolved correctly.
+
+If Android Studio says it cannot find either main class, reload the Maven project first so the `core`, `desktop`, and `android` modules are imported before running the shared configuration.
 
 The Android module is still a Java placeholder module, so the Android Studio configuration runs the placeholder launcher rather than a packaged APK.
 

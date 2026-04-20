@@ -1,10 +1,31 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="Android Placeholder App" type="Application" factoryName="Application">
-    <option name="MAIN_CLASS_NAME" value="com.timemanagement.android.gui.AndroidPlaceholderApp" />
-    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
-    <module name="android" />
-    <method v="2">
-      <option name="Make" enabled="true" />
-    </method>
+  <configuration default="false" name="Android Placeholder App" type="MavenRunConfiguration" factoryName="Maven">
+    <MavenSettings>
+      <option name="myGeneralSettings" />
+      <option name="myRunnerSettings" />
+      <option name="myRunnerParameters">
+        <MavenRunnerParameters>
+          <option name="profiles">
+            <set />
+          </option>
+          <option name="goals">
+            <list>
+              <option value="-pl" />
+              <option value="android" />
+              <option value="-am" />
+              <option value="-Pandroid-placeholder-run" />
+              <option value="process-classes" />
+            </list>
+          </option>
+          <option name="pomFileName" />
+          <option name="profilesMap">
+            <map />
+          </option>
+          <option name="resolveToWorkspace" value="false" />
+          <option name="workingDirPath" value="$PROJECT_DIR$" />
+        </MavenRunnerParameters>
+      </option>
+    </MavenSettings>
+    <method v="2" />
   </configuration>
 </component>
