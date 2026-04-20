@@ -110,7 +110,10 @@ public class DesktopApp {
         JButton microsoftClearButton = new JButton("Forget Saved Microsoft Session");
         JLabel accountLabel = new JLabel("Not signed in");
 
-        loginPanel.add(new JLabel("Credential passphrase:"));
+        JPanel passphraseLabelPanel = new JPanel(new GridLayout(0, 1, 0, 2));
+        passphraseLabelPanel.add(new JLabel("Credential passphrase:"));
+        passphraseLabelPanel.add(new JLabel("<html><span style='font-size:9px;color:#666666;'>Used to encrypt and unlock saved sign-in sessions on this computer.</span></html>"));
+        loginPanel.add(passphraseLabelPanel);
         loginPanel.add(passphraseField);
         loginPanel.add(googleLoginButton);
         loginPanel.add(googleRestoreButton);
