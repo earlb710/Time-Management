@@ -73,6 +73,17 @@ mvn -pl core,desktop -am install -DskipTests
 mvn -f desktop/pom.xml -Dexec.mainClass=com.timemanagement.desktop.gui.DesktopApp exec:java
 ```
 
+## Run in Android Studio
+
+Open `/home/runner/work/Time-Management/Time-Management` in Android Studio as a Maven project. The repository now includes shared run configurations in `.run/`:
+
+- `Desktop App` → launches `com.timemanagement.desktop.gui.DesktopApp`
+- `Android Placeholder App` → launches `com.timemanagement.android.gui.AndroidPlaceholderApp`
+
+Both run configurations use the repository root as the working directory so the existing `data/` folder is resolved correctly.
+
+The Android module is still a Java placeholder module, so the Android Studio configuration runs the placeholder launcher rather than a packaged APK.
+
 ## Generate desktop UI screenshot
 
 ```bash

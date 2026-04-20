@@ -1,0 +1,10 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Android Placeholder App" type="Application" factoryName="Application">
+    <option name="MAIN_CLASS_NAME" value="com.timemanagement.android.gui.AndroidPlaceholderApp" />
+    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+    <module name="android" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>
