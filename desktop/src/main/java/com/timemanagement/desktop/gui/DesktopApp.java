@@ -13,6 +13,7 @@ import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.nio.file.Path;
+import java.util.Arrays;
 
 public class DesktopApp {
     private final GoogleLoginManager loginManager;
@@ -115,23 +116,29 @@ public class DesktopApp {
         profileInput.add(new JLabel("Multiple profiles per login are supported."));
 
         loginButton.addActionListener(event -> {
+            char[] passphrase = readPassphrase(passphraseField);
             try {
-                GoogleOAuthSession session = oauthService().signIn(readPassphrase(passphraseField));
+                GoogleOAuthSession session = oauthService().signIn(passphrase);
                 currentAccount = loginManager.login(session.getIdentity());
                 updateSignedInState(accountLabel, profileListModel, addProfileButton);
             } catch (RuntimeException ex) {
                 JOptionPane.showMessageDialog(panel, ex.getMessage(), "Login failed", JOptionPane.ERROR_MESSAGE);
+            } finally {
+                Arrays.fill(passphrase, '\0');
             }
         });
 
         restoreButton.addActionListener(event -> {
+            char[] passphrase = readPassphrase(passphraseField);
             try {
-                GoogleOAuthSession session = oauthService().restoreSession(readPassphrase(passphraseField))
+                GoogleOAuthSession session = oauthService().restoreSession(passphrase)
                         .orElseThrow(() -> new IllegalStateException("No saved Google session was found."));
                 currentAccount = loginManager.login(session.getIdentity());
                 updateSignedInState(accountLabel, profileListModel, addProfileButton);
             } catch (RuntimeException ex) {
                 JOptionPane.showMessageDialog(panel, ex.getMessage(), "Restore failed", JOptionPane.ERROR_MESSAGE);
+            } finally {
+                Arrays.fill(passphrase, '\0');
             }
         });
 

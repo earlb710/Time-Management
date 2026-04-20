@@ -18,6 +18,7 @@ import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermission;
 import java.security.GeneralSecurityException;
 import java.security.SecureRandom;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.EnumSet;
 import java.util.Optional;
@@ -121,18 +122,28 @@ public class DesktopOAuthCredentialStore {
     private SecretKey deriveKey(char[] passphrase, byte[] salt) throws GeneralSecurityException {
         SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
         PBEKeySpec spec = new PBEKeySpec(passphrase, salt, PBKDF2_ITERATIONS, KEY_LENGTH);
-        byte[] encoded = factory.generateSecret(spec).getEncoded();
-        return new SecretKeySpec(encoded, "AES");
+        try {
+            byte[] encoded = factory.generateSecret(spec).getEncoded();
+            try {
+                return new SecretKeySpec(encoded, "AES");
+            } finally {
+                Arrays.fill(encoded, (byte) 0);
+            }
+        } finally {
+            spec.clearPassword();
+        }
     }
 
     private void requirePassphrase(char[] passphrase) {
         if (passphrase == null || passphrase.length == 0) {
             throw new IllegalArgumentException("A credential passphrase is required.");
         }
-        String value = new String(passphrase);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException("A credential passphrase is required.");
+        for (char character : passphrase) {
+            if (!Character.isWhitespace(character)) {
+                return;
+            }
         }
+        throw new IllegalArgumentException("A credential passphrase is required.");
     }
 
     static class EncryptedEnvelope {
