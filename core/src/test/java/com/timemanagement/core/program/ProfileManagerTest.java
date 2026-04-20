@@ -70,4 +70,19 @@ class ProfileManagerTest {
         assertEquals(1, profiles.size());
         assertEquals("microsoft", account.getProvider());
     }
+
+    @Test
+    void defaultsToLocalStorageAccount() {
+        JsonDataStore dataStore = new JsonDataStore(tempDir);
+        LocalStorageAccountManager localStorageAccountManager = new LocalStorageAccountManager(dataStore);
+        ProfileManager profileManager = new ProfileManager(dataStore);
+
+        GoogleAccount account = localStorageAccountManager.useLocalStorage();
+        profileManager.createProfile(account.getAccountId(), "Offline", "person");
+
+        List<ManagedProfile> profiles = profileManager.listProfiles(account.getAccountId());
+        assertEquals(LocalStorageAccountManager.ACCOUNT_ID, account.getAccountId());
+        assertEquals(LocalStorageAccountManager.PROVIDER, account.getProvider());
+        assertEquals(1, profiles.size());
+    }
 }

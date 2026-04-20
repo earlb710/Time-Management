@@ -1,18 +1,50 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Time Management</string>
-    <string name="label_account_id">Account ID</string>
-    <string name="hint_account_id">Enter account ID</string>
-    <string name="button_set_account">Use Account</string>
-    <string name="not_signed_in">No account selected</string>
-    <string name="signed_in_as">Account: %1$s</string>
+    <string name="menu_local_storage">Local storage</string>
+    <string name="menu_connect_google_drive">Connect Google Drive</string>
+    <string name="menu_connect_microsoft_drive">Connect Microsoft Drive</string>
+
+    <string name="local_storage_default_status">Using local storage by default on this device.</string>
+    <string name="local_storage_title">Local Storage</string>
+    <string name="local_storage_body">Profiles are saved in the app&apos;s private files directory by default. Use the menu to open Google Drive or Microsoft Drive setup without leaving local storage.</string>
+    <string name="not_signed_in">Active storage account: local-storage</string>
+    <string name="signed_in_as">Active storage account: %1$s</string>
+    <string name="local_profiles_note">Multiple profiles per storage account are supported.</string>
+
     <string name="label_profile_name">Profile Name</string>
     <string name="hint_profile_name">Enter profile name</string>
     <string name="label_profile_type">Profile Type</string>
     <string name="hint_profile_type">person or service</string>
     <string name="button_add_profile">Add Profile</string>
     <string name="label_profiles">Profiles</string>
-    <string name="error_account_id_required">Please enter an account ID first.</string>
     <string name="error_profile_name_required">Profile name is required.</string>
     <string name="error_profile_type_required">Profile type is required.</string>
+
+    <string name="google_drive_title">Connect Google Drive</string>
+    <string name="google_drive_setup_steps">1. Create a Desktop/Mobile OAuth client in Google Cloud.\n2. Paste the client id below.\n3. Choose a credential passphrase for the encrypted local session.\n4. Keep local storage as the default mode until the mobile browser callback is completed.\n5. The desktop app already uses the same Google Drive scopes for browser sign-in.</string>
+    <string name="label_google_client_id">Google OAuth client id</string>
+    <string name="hint_google_client_id">your-client-id.apps.googleusercontent.com</string>
+    <string name="label_google_passphrase">Credential passphrase</string>
+    <string name="hint_oauth_passphrase">Used to protect saved local sessions</string>
+    <string name="google_drive_setup_default_status">Enter the Google client id and passphrase you want to use for Drive setup.</string>
+    <string name="button_save_google_setup">Save Google setup</string>
+    <string name="button_clear_google_setup">Clear Google setup</string>
+    <string name="google_drive_setup_saved">Google Drive setup saved. Local storage remains the default until you switch away from it.</string>
+    <string name="google_drive_setup_cleared">Google Drive setup cleared.</string>
+    <string name="error_google_client_id_required">Google client id is required.</string>
+    <string name="error_google_passphrase_required">Google credential passphrase is required.</string>
+
+    <string name="microsoft_drive_title">Connect Microsoft Drive</string>
+    <string name="microsoft_drive_setup_steps">1. Create a public client/app registration in Microsoft Entra ID or Azure.\n2. Paste the application client id below.\n3. Choose a credential passphrase for the encrypted local session.\n4. Keep local storage as the default mode until the mobile browser callback is completed.\n5. The desktop app already uses the same Microsoft Drive scopes for browser sign-in.</string>
+    <string name="label_microsoft_client_id">Microsoft OAuth client id</string>
+    <string name="hint_microsoft_client_id">your-microsoft-client-id</string>
+    <string name="label_microsoft_passphrase">Credential passphrase</string>
+    <string name="microsoft_drive_setup_default_status">Enter the Microsoft client id and passphrase you want to use for Drive setup.</string>
+    <string name="button_save_microsoft_setup">Save Microsoft setup</string>
+    <string name="button_clear_microsoft_setup">Clear Microsoft setup</string>
+    <string name="microsoft_drive_setup_saved">Microsoft Drive setup saved. Local storage remains the default until you switch away from it.</string>
+    <string name="microsoft_drive_setup_cleared">Microsoft Drive setup cleared.</string>
+    <string name="error_microsoft_client_id_required">Microsoft client id is required.</string>
+    <string name="error_microsoft_passphrase_required">Microsoft credential passphrase is required.</string>
 </resources>

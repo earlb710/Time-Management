@@ -27,23 +27,61 @@ public class DesktopOAuthClientConfig {
     }
 
     public static DesktopOAuthClientConfig loadGoogleFromEnvironment() {
+        return loadGoogle(null);
+    }
+
+    public static DesktopOAuthClientConfig loadGoogle(String preferredClientId) {
         return new DesktopOAuthClientConfig(
-                firstPresent(
-                        System.getProperty("time.management.googleClientId"),
-                        System.getenv("TIME_MANAGEMENT_GOOGLE_CLIENT_ID")
+                requireValue(
+                        firstPresent(
+                                preferredClientId,
+                                System.getProperty("time.management.googleClientId"),
+                                System.getenv("TIME_MANAGEMENT_GOOGLE_CLIENT_ID")
+                        ),
+                        "A Google OAuth client id is required. Enter it on the Google Drive page or set TIME_MANAGEMENT_GOOGLE_CLIENT_ID."
                 ),
                 GOOGLE_DEFAULT_SCOPES
         );
     }
 
     public static DesktopOAuthClientConfig loadMicrosoftFromEnvironment() {
+        return loadMicrosoft(null);
+    }
+
+    public static DesktopOAuthClientConfig loadMicrosoft(String preferredClientId) {
         return new DesktopOAuthClientConfig(
-                firstPresent(
-                        System.getProperty("time.management.microsoftClientId"),
-                        System.getenv("TIME_MANAGEMENT_MICROSOFT_CLIENT_ID")
+                requireValue(
+                        firstPresent(
+                                preferredClientId,
+                                System.getProperty("time.management.microsoftClientId"),
+                                System.getenv("TIME_MANAGEMENT_MICROSOFT_CLIENT_ID")
+                        ),
+                        "A Microsoft OAuth client id is required. Enter it on the Microsoft Drive page or set TIME_MANAGEMENT_MICROSOFT_CLIENT_ID."
                 ),
                 MICROSOFT_DEFAULT_SCOPES
         );
+    }
+
+    public static String defaultGoogleClientId() {
+        return firstPresent(
+                System.getProperty("time.management.googleClientId"),
+                System.getenv("TIME_MANAGEMENT_GOOGLE_CLIENT_ID")
+        );
+    }
+
+    public static String defaultMicrosoftClientId() {
+        return firstPresent(
+                System.getProperty("time.management.microsoftClientId"),
+                System.getenv("TIME_MANAGEMENT_MICROSOFT_CLIENT_ID")
+        );
+    }
+
+    public static List<String> googleDefaultScopes() {
+        return GOOGLE_DEFAULT_SCOPES;
+    }
+
+    public static List<String> microsoftDefaultScopes() {
+        return MICROSOFT_DEFAULT_SCOPES;
     }
 
     public String getClientId() {

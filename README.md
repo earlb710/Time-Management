@@ -9,22 +9,34 @@ Minimal starter implementation matching the requested architecture:
 
 ## Implemented requirements
 
-- Desktop Google OAuth 2.0 sign-in flow with browser consent, access tokens, refresh tokens, and encrypted local session storage
-- Desktop Microsoft OAuth 2.0 sign-in flow with browser consent, access tokens, refresh tokens, and encrypted local session storage
+- Desktop and Android both default to local storage for profiles/accounts
+- Desktop storage menu with **Local Storage**, **Connect Google Drive**, and **Connect Microsoft Drive** pages
+- Android storage menu with **Local Storage**, **Connect Google Drive**, and **Connect Microsoft Drive** pages
+- Desktop Google OAuth 2.0 browser sign-in flow with access tokens, refresh tokens, and encrypted local session storage
+- Desktop Microsoft OAuth 2.0 browser sign-in flow with access tokens, refresh tokens, and encrypted local session storage
 - Shared Google identity/session models so platform-specific sign-in flows can hand real OAuth identities into shared core logic
 - Shared Microsoft identity/session models so platform-specific sign-in flows can hand real OAuth identities into shared core logic
 - Multiple profiles per signed-in login
 - Shared non-GUI logic across desktop and android modules
 
+## Default local storage behavior
+
+Both apps now start in a local-storage mode automatically:
+
+- Desktop stores profile/account JSON in `data/`
+- Android stores profile/account JSON in `/data/data/com.timemanagement.android/files/data/`
+
+Cloud connections are optional and live behind each app's storage menu.
+
 ## Google OAuth desktop setup
 
-Set a desktop OAuth client id before using Google sign-in:
+The desktop **Connect Google Drive** page now walks through the setup process and lets you paste a Google client id directly into the UI. You can still prefill it with:
 
 ```bash
 export TIME_MANAGEMENT_GOOGLE_CLIENT_ID=your-desktop-client-id.apps.googleusercontent.com
 ```
 
-The desktop UI now asks for a credential passphrase. That passphrase encrypts the saved OAuth session at:
+The desktop UI asks for a credential passphrase on the Google Drive page. That passphrase encrypts the saved OAuth session at:
 
 - `~/.time-management/google-oauth-session.enc`
 
@@ -35,11 +47,11 @@ The desktop flow requests these scopes:
 - `profile`
 - `https://www.googleapis.com/auth/drive.file`
 
-The Android module is now a real Gradle Android app module. It currently demonstrates the shared profile-management flow, and can be extended later with platform-native Google sign-in.
+The Android **Connect Google Drive** menu page now documents the OAuth setup values the mobile app needs while leaving local storage as the default mode.
 
 ## Microsoft OAuth desktop setup
 
-Set a Microsoft OAuth client id before using Microsoft sign-in:
+The desktop **Connect Microsoft Drive** page likewise accepts a client id directly in the UI, or you can prefill it with:
 
 ```bash
 export TIME_MANAGEMENT_MICROSOFT_CLIENT_ID=your-microsoft-client-id
@@ -58,7 +70,7 @@ The Microsoft desktop flow requests these scopes:
 - `User.Read`
 - `Files.ReadWrite.AppFolder`
 
-The Android module can likewise be extended later with platform-native Microsoft sign-in while continuing to reuse the shared core logic.
+The Android **Connect Microsoft Drive** menu page likewise captures the client-id setup values while the app continues using local storage by default.
 
 ## Run tests
 
@@ -95,9 +107,10 @@ Once sync succeeds, Android Studio exposes the checked-in Gradle run configurati
 
 For the Android run task, connect a device or start an emulator first. The task installs the debug build and launches `MainActivity` through `adb`. The app lets you:
 
-1. Enter any account ID and press **Use Account**
-2. Add profiles (name + type) associated with that account
-3. See all profiles for the active account in a scrollable list
+1. Start in **Local storage** automatically
+2. Add profiles (name + type) associated with the default local-storage account
+3. Use the app menu to open the Google Drive or Microsoft Drive setup pages
+4. See all profiles for the active storage account in a scrollable list
 
 Data is persisted in the app's internal files directory at `/data/data/com.timemanagement.android/files/data/` (visible in Device File Explorer).
 
@@ -105,7 +118,7 @@ Data is persisted in the app's internal files directory at `/data/data/com.timem
 
 ## Run the desktop app in Android Studio
 
-Use the checked-in **Desktop App** and **Desktop App Build** Gradle configurations. They run `:desktop:runDesktopApp` and `:desktop:buildDesktopApp`, use the Gradle Java 17 toolchain automatically, and keep the working directory at the repository root so the existing `data/` directory resolves correctly.
+Use the checked-in **Desktop App** and **Desktop App Build** Gradle configurations. They run `:desktop:runDesktopApp` and `:desktop:buildDesktopApp`, use the Gradle Java 17 toolchain automatically, and keep the working directory at the repository root so the existing `data/` directory resolves correctly. Once the app opens, use the **Storage** menu to switch between the local storage page and the two cloud-connection setup pages.
 
 ## Build Android app
 
