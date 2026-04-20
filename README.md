@@ -35,7 +35,7 @@ The desktop flow requests these scopes:
 - `profile`
 - `https://www.googleapis.com/auth/drive.file`
 
-The Android module is still a placeholder module in this repository, but it now accepts real `GoogleIdentity` / `GoogleOAuthSession` objects from an Android-specific sign-in flow so a real Android app can plug in platform-native credential storage separately.
+The Android module is now a real Gradle Android app module. It currently demonstrates the shared profile-management flow, and can be extended later with platform-native Google sign-in.
 
 ## Microsoft OAuth desktop setup
 
@@ -58,7 +58,7 @@ The Microsoft desktop flow requests these scopes:
 - `User.Read`
 - `Files.ReadWrite.AppFolder`
 
-The Android module also accepts real `MicrosoftIdentity` / `MicrosoftOAuthSession` objects so a real Android app can plug in platform-native credential storage separately for Microsoft accounts too.
+The Android module can likewise be extended later with platform-native Microsoft sign-in while continuing to reuse the shared core logic.
 
 ## Run tests
 
@@ -75,12 +75,13 @@ mvn -f desktop/pom.xml -Dexec.mainClass=com.timemanagement.desktop.gui.DesktopAp
 
 ## Run the Android app in Android Studio
 
-Open the repository root in Android Studio. Android Studio detects `settings.gradle.kts` and imports the Gradle project with two modules:
+Open the repository root in Android Studio as a Gradle project. After **Sync Project with Gradle Files**, Android Studio imports:
 
 - `:core` — shared Java library (data classes, profile/login managers)
 - `:android` — real Android app (`com.timemanagement.android`)
+- `:desktop` — desktop Java application (`com.timemanagement.desktop.gui.DesktopApp`)
 
-Android Studio shows the **app** run configuration automatically. Connect a device or start an emulator, then press **Run** to build and deploy the APK. The app lets you:
+Once sync succeeds, Android Studio generates the Android **app** run configuration from the imported `:android` module. Connect a device or start an emulator, then press **Run**. The app lets you:
 
 1. Enter any account ID and press **Use Account**
 2. Add profiles (name + type) associated with that account
@@ -88,11 +89,11 @@ Android Studio shows the **app** run configuration automatically. Connect a devi
 
 Data is persisted in the app's internal files directory at `/data/data/com.timemanagement.android/files/data/` (visible in Device File Explorer).
 
-> **Tip:** If Android Studio does not pick up modules after opening, choose **File → Sync Project with Gradle Files**.
+> **Tip:** This repository no longer checks in a shared Android `.run` file because the generated module name is IDE-specific. If the Android run target is missing, run **File → Sync Project with Gradle Files** and Android Studio will recreate it from the Gradle model. The first sync also needs network access to Google Maven so Android Gradle Plugin artifacts can be downloaded.
 
 ## Run the desktop app in Android Studio
 
-The `.run/Desktop App.run.xml` Maven configuration launches the Swing desktop app. Android Studio also imports the Maven `core` and `desktop` modules, so the shared configuration is available in the run dropdown. Use **Maven** tool window → reload if the `desktop` module is not visible.
+Use the checked-in **Desktop App** Gradle run configuration. It runs `:desktop:run`, uses the Gradle Java 17 toolchain automatically, and sets the working directory to the repository root so the existing `data/` directory resolves correctly.
 
 ## Generate desktop UI screenshot
 

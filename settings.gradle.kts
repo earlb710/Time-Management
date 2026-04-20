@@ -16,3 +16,4 @@ dependencyResolutionManagement {
 rootProject.name = "time-management"
 include(":core")
 include(":android")
+include(":desktop")
