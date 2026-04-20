@@ -131,7 +131,7 @@ public class MainActivity extends AppCompatActivity {
 
         dataDirectoryLabel.setText(dataDirectory.toAbsolutePath().normalize().toString());
         showSection(localStorageSection, getString(R.string.local_storage_default_status));
-        maybePromptForInitialLogin();
+        maybePromptForRequiredGoogleLogin();
     }
 
     @Override
@@ -195,7 +195,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void handleGoogleSignInResult(Intent data) {
         try {
-            boolean completingInitialLogin = !preferences.getBoolean(INITIAL_LOGIN_PROMPT_COMPLETED_KEY, false);
+            boolean completingInitialLogin = requiresStartupLogin();
             GoogleSignInAccount signedInAccount = GoogleSignIn.getSignedInAccountFromIntent(data)
                     .getResult(ApiException.class);
             if (signedInAccount == null || signedInAccount.getId() == null || signedInAccount.getEmail() == null) {
@@ -208,7 +208,6 @@ public class MainActivity extends AppCompatActivity {
                     signedInAccount.getDisplayName()
             ));
             updateActiveAccount(account);
-            preferences.edit().putBoolean(INITIAL_LOGIN_PROMPT_COMPLETED_KEY, true).apply();
             if (completingInitialLogin) {
                 showSection(localStorageSection, getString(R.string.local_storage_default_status));
             }
@@ -217,8 +216,8 @@ public class MainActivity extends AppCompatActivity {
         } catch (ApiException | RuntimeException e) {
             Toast.makeText(this, getString(R.string.error_google_sign_in_failed), Toast.LENGTH_LONG).show();
             refreshGoogleSignInState();
-            if (!preferences.getBoolean(INITIAL_LOGIN_PROMPT_COMPLETED_KEY, false)) {
-                maybePromptForInitialLogin();
+            if (requiresStartupLogin()) {
+                maybePromptForRequiredGoogleLogin();
             }
         }
     }
@@ -230,23 +229,37 @@ public class MainActivity extends AppCompatActivity {
             }
             refreshGoogleSignInState();
             Toast.makeText(this, getString(R.string.google_drive_signed_out), Toast.LENGTH_SHORT).show();
+            maybePromptForRequiredGoogleLogin();
         });
     }
 
-    private void maybePromptForInitialLogin() {
-        if (preferences.getBoolean(INITIAL_LOGIN_PROMPT_COMPLETED_KEY, false)) {
+    private void maybePromptForRequiredGoogleLogin() {
+        if (!requiresStartupLogin()) {
             return;
         }
 
+        promptForGoogleEmailLogin();
+    }
+
+    private void promptForGoogleEmailLogin() {
+        EditText emailField = new EditText(this);
+        emailField.setHint(R.string.hint_login_email);
+        emailField.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
         new AlertDialog.Builder(this)
-                .setTitle(R.string.initial_login_dialog_title)
-                .setMessage(R.string.initial_login_dialog_message)
+                .setTitle(R.string.google_login_dialog_title)
+                .setMessage(R.string.google_login_dialog_message)
                 .setCancelable(false)
-                .setPositiveButton(R.string.button_continue_with_google, (dialog, which) -> {
-                    signInWithGoogle();
-                })
-                .setNegativeButton(R.string.button_continue_with_microsoft, (dialog, which) -> {
-                    promptForMicrosoftEmailLogin();
+                .setView(emailField)
+                .setPositiveButton(R.string.button_sign_in, (dialog, which) -> {
+                    String email = normalizeLoginEmail(emailField.getText().toString());
+                    if (email == null) {
+                        Toast.makeText(this, getString(R.string.error_login_email_required), Toast.LENGTH_LONG).show();
+                        maybePromptForRequiredGoogleLogin();
+                        return;
+                    }
+                    GoogleAccount account = googleLoginManager.login(new GoogleIdentity(email, email, email));
+                    updateActiveAccount(account);
+                    showSection(localStorageSection, getString(R.string.local_storage_default_status));
                 })
                 .show();
     }
@@ -264,12 +277,11 @@ public class MainActivity extends AppCompatActivity {
                     String email = normalizeLoginEmail(emailField.getText().toString());
                     if (email == null) {
                         Toast.makeText(this, getString(R.string.error_login_email_required), Toast.LENGTH_LONG).show();
-                        maybePromptForInitialLogin();
+                        promptForMicrosoftEmailLogin();
                         return;
                     }
                     GoogleAccount account = microsoftLoginManager.login(new MicrosoftIdentity(email, email, email));
                     updateActiveAccount(account);
-                    preferences.edit().putBoolean(INITIAL_LOGIN_PROMPT_COMPLETED_KEY, true).apply();
                     showSection(localStorageSection, getString(R.string.local_storage_default_status));
                 })
                 .show();
@@ -387,8 +399,23 @@ public class MainActivity extends AppCompatActivity {
 
     private void updateActiveAccount(GoogleAccount account) {
         currentAccount = account;
+        preferences.edit()
+                .putBoolean(INITIAL_LOGIN_PROMPT_COMPLETED_KEY, !isLoginRequired(account))
+                .apply();
         accountLabel.setText(getString(R.string.signed_in_as, describeAccount(account)));
         refreshProfiles();
+    }
+
+    private boolean requiresStartupLogin() {
+        return isLoginRequired(currentAccount);
+    }
+
+    private boolean isLoginRequired(GoogleAccount account) {
+        if (account == null) {
+            return true;
+        }
+        String provider = account.getProvider();
+        return provider == null || provider.isBlank() || LocalStorageAccountManager.PROVIDER.equalsIgnoreCase(provider);
     }
 
     private String describeAccount(GoogleAccount account) {

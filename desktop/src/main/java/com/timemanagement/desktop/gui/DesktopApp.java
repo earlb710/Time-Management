@@ -85,7 +85,7 @@ public class DesktopApp {
         frame.pack();
         frame.setLocationRelativeTo(null);
         frame.setVisible(true);
-        maybePromptForInitialLogin(frame, desktopView);
+        maybePromptForRequiredGoogleLogin(frame, desktopView);
     }
 
     public void exportUiScreenshot(Path outputPath) {
@@ -227,40 +227,12 @@ public class DesktopApp {
         return panel;
     }
 
-    private void maybePromptForInitialLogin(JFrame frame, DesktopView desktopView) {
-        if (preferences.getBoolean(INITIAL_LOGIN_PROMPT_COMPLETED_KEY, false)) {
+    private void maybePromptForRequiredGoogleLogin(JFrame frame, DesktopView desktopView) {
+        if (!requiresStartupLogin()) {
             return;
         }
-
-        Object[] options = {"Google", "Microsoft"};
-        while (true) {
-            int choice = JOptionPane.showOptionDialog(
-                    frame,
-                    "The first time you open the app, choose Google or Microsoft login.",
-                    "Choose a login",
-                    JOptionPane.DEFAULT_OPTION,
-                    JOptionPane.INFORMATION_MESSAGE,
-                    null,
-                    options,
-                    options[0]
-            );
-
-            if (choice == JOptionPane.CLOSED_OPTION) {
-                frame.dispose();
-                return;
-            }
-            if (choice == 0) {
-                if (!promptForGoogleEmailLogin(frame, desktopView)) {
-                    frame.dispose();
-                }
-                return;
-            }
-            if (choice == 1) {
-                if (!promptForMicrosoftEmailLogin(frame, desktopView)) {
-                    frame.dispose();
-                }
-                return;
-            }
+        if (!promptForGoogleEmailLogin(frame, desktopView)) {
+            frame.dispose();
         }
     }
 
@@ -273,7 +245,6 @@ public class DesktopApp {
             try {
                 GoogleAccount account = googleLoginManager.login(new GoogleIdentity(email, email, email));
                 updateActiveAccount(account, desktopView.storageStatusLabel(), desktopView.profileListModel(), desktopView.addProfileButton());
-                preferences.putBoolean(INITIAL_LOGIN_PROMPT_COMPLETED_KEY, true);
                 desktopView.cardLayout().show(desktopView.pagePanel(), LOCAL_STORAGE_CARD);
                 return true;
             } catch (RuntimeException ex) {
@@ -291,7 +262,6 @@ public class DesktopApp {
             try {
                 GoogleAccount account = microsoftLoginManager.login(new MicrosoftIdentity(email, email, email));
                 updateActiveAccount(account, desktopView.storageStatusLabel(), desktopView.profileListModel(), desktopView.addProfileButton());
-                preferences.putBoolean(INITIAL_LOGIN_PROMPT_COMPLETED_KEY, true);
                 desktopView.cardLayout().show(desktopView.pagePanel(), LOCAL_STORAGE_CARD);
                 return true;
             } catch (RuntimeException ex) {
@@ -621,6 +591,7 @@ public class DesktopApp {
                                      DefaultListModel<String> profileListModel,
                                      JButton addProfileButton) {
         currentAccount = account;
+        preferences.putBoolean(INITIAL_LOGIN_PROMPT_COMPLETED_KEY, !isLoginRequired(account));
         String provider = account.getProvider() == null ? "" : account.getProvider().trim().toLowerCase();
         if ("google".equals(provider)) {
             storageStatusLabel.setText("Signed in with Google as " + account.getDisplayName() + ". Local profiles stay available.");
@@ -649,6 +620,18 @@ public class DesktopApp {
 
     private String valueOrEmpty(String value) {
         return value == null ? "" : value;
+    }
+
+    private boolean requiresStartupLogin() {
+        return isLoginRequired(currentAccount);
+    }
+
+    private boolean isLoginRequired(GoogleAccount account) {
+        if (account == null) {
+            return true;
+        }
+        String provider = account.getProvider();
+        return provider == null || provider.isBlank() || LocalStorageAccountManager.PROVIDER.equalsIgnoreCase(provider);
     }
 
     private String normalizeLoginEmail(String value) {
