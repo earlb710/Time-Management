@@ -218,7 +218,7 @@ public class DesktopApp {
         JTextField dataDirectoryField = new JTextField(dataDirectory.toAbsolutePath().normalize().toString());
         dataDirectoryField.setEditable(false);
 
-        JButton browseFolderButton = new JButton("Browse Folder");
+        JButton browseFolderButton = new JButton("Select Folder");
         browseFolderButton.addActionListener(event -> browseDesktopDataDirectory(panel));
 
         JPanel directoryPanel = new JPanel(new BorderLayout(6, 6));
@@ -238,7 +238,7 @@ public class DesktopApp {
             }
             Desktop.getDesktop().open(dataDirectory.toFile());
         } catch (IOException | RuntimeException ex) {
-            JOptionPane.showMessageDialog(parent, ex.getMessage(), "Browse folder failed", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(parent, ex.getMessage(), "Select folder failed", JOptionPane.ERROR_MESSAGE);
         }
     }
 

@@ -12,7 +12,7 @@
     <string name="signed_in_as">Active storage account: %1$s</string>
     <string name="label_data_directory">Data directory</string>
     <string name="local_storage_data_directory_placeholder">Loading data directory…</string>
-    <string name="button_browse_folder">Browse Folder</string>
+    <string name="button_browse_folder">Select Folder</string>
     <string name="local_profiles_note">Multiple profiles per storage account are supported.</string>
     <string name="browse_folder_dialog_title">Local storage folder</string>
     <string name="browse_folder_dialog_message">Path: %1$s\n\nContents:\n%2$s</string>
