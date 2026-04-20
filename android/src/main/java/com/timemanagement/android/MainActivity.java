@@ -220,7 +220,14 @@ public class MainActivity extends AppCompatActivity {
 
     private void browseDataDirectory() {
         String typed = dataDirectoryLabel.getText().toString().trim();
-        Path target = typed.isEmpty() ? dataDirectory : Path.of(typed);
+        Path target;
+        try {
+            target = typed.isEmpty() ? dataDirectory : resolveUnderAppStorage(typed);
+        } catch (IOException | RuntimeException e) {
+            Toast.makeText(this, getString(R.string.select_folder_failed), Toast.LENGTH_LONG).show();
+            dataDirectoryLabel.setText(dataDirectory.toAbsolutePath().normalize().toString());
+            return;
+        }
         try {
             Files.createDirectories(target);
             dataDirectory = target;
@@ -238,6 +245,15 @@ public class MainActivity extends AppCompatActivity {
         } catch (IOException | RuntimeException e) {
             Toast.makeText(this, getString(R.string.select_folder_failed), Toast.LENGTH_LONG).show();
         }
+    }
+
+    private Path resolveUnderAppStorage(String typed) throws IOException {
+        Path root = getFilesDir().toPath().toAbsolutePath().normalize();
+        Path candidate = Path.of(typed).toAbsolutePath().normalize();
+        if (!candidate.startsWith(root)) {
+            throw new IOException("Selected folder must be within the app storage directory.");
+        }
+        return candidate;
     }
 
     private String listDataDirectoryContents() throws IOException {
