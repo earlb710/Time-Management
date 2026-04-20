@@ -166,12 +166,24 @@ public class DesktopOAuthCredentialStore<T> {
             return salt;
         }
 
+        public void setSalt(String salt) {
+            this.salt = salt;
+        }
+
         public String getIv() {
             return iv;
         }
 
+        public void setIv(String iv) {
+            this.iv = iv;
+        }
+
         public String getCiphertext() {
             return ciphertext;
+        }
+
+        public void setCiphertext(String ciphertext) {
+            this.ciphertext = ciphertext;
         }
     }
 }
