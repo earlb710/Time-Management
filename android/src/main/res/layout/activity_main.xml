@@ -154,40 +154,10 @@
                 android:text="@string/google_drive_setup_steps" />
 
             <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:text="@string/label_google_client_id"
-                android:textAppearance="?attr/textAppearanceBody1" />
-
-            <EditText
-                android:id="@+id/googleClientIdField"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:hint="@string/hint_google_client_id"
-                android:inputType="text"
-                android:maxLines="1" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="@string/label_google_passphrase"
-                android:textAppearance="?attr/textAppearanceBody1" />
-
-            <EditText
-                android:id="@+id/googlePassphraseField"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:hint="@string/hint_oauth_passphrase"
-                android:inputType="textPassword"
-                android:maxLines="1" />
-
-            <TextView
                 android:id="@+id/googleSetupStatus"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="12dp"
                 android:text="@string/google_drive_setup_default_status" />
 
             <LinearLayout
@@ -197,17 +167,17 @@
                 android:orientation="horizontal">
 
                 <Button
-                    android:id="@+id/saveGoogleSetupButton"
+                    android:id="@+id/signInWithGoogleButton"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="@string/button_save_google_setup" />
+                    android:text="@string/button_sign_in_google" />
 
                 <Button
-                    android:id="@+id/clearGoogleSetupButton"
+                    android:id="@+id/signOutGoogleButton"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="8dp"
-                    android:text="@string/button_clear_google_setup" />
+                    android:text="@string/button_sign_out_google" />
             </LinearLayout>
         </LinearLayout>
 

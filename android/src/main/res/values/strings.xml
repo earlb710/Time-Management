@@ -31,18 +31,14 @@
     <string name="error_profile_type_required">Profile type is required.</string>
 
     <string name="google_drive_title">Connect Google Drive</string>
-    <string name="google_drive_setup_steps">1. Create a Desktop/Mobile OAuth client in Google Cloud.\n2. Paste the client id below.\n3. Choose a credential passphrase for the encrypted local session.\n4. Keep local storage as the default mode until the mobile browser callback is completed.\n5. The desktop app already uses the same Google Drive scopes for browser sign-in.</string>
-    <string name="label_google_client_id">Google OAuth client id</string>
-    <string name="hint_google_client_id">your-client-id.apps.googleusercontent.com</string>
-    <string name="label_google_passphrase">Credential passphrase</string>
-    <string name="hint_oauth_passphrase">Used to protect saved local sessions</string>
-    <string name="google_drive_setup_default_status">Enter the Google client id and passphrase you want to use for Drive setup.</string>
-    <string name="button_save_google_setup">Save Google setup</string>
-    <string name="button_clear_google_setup">Clear Google setup</string>
-    <string name="google_drive_setup_saved">Google Drive setup saved. Local storage remains the default until you switch away from it.</string>
-    <string name="google_drive_setup_cleared">Google Drive setup cleared.</string>
-    <string name="error_google_client_id_required">Google client id is required.</string>
-    <string name="error_google_passphrase_required">Google credential passphrase is required.</string>
+    <string name="google_drive_setup_steps">1. Tap Sign in with Google.\n2. Choose the Google account you want to use on this device.\n3. The selected Google profile is used to identify the active user in the shared account store.\n4. Local storage remains available from the menu whenever you want to switch back.</string>
+    <string name="google_drive_setup_default_status">Not signed in with Google on this device.</string>
+    <string name="button_sign_in_google">Sign in with Google</string>
+    <string name="button_sign_out_google">Sign out</string>
+    <string name="google_drive_connected_as">Connected as %1$s.</string>
+    <string name="google_drive_available_as">Google login available for %1$s.</string>
+    <string name="google_drive_signed_out">Signed out of Google on this device.</string>
+    <string name="error_google_sign_in_failed">Google sign-in failed.</string>
 
     <string name="microsoft_drive_title">Connect Microsoft Drive</string>
     <string name="microsoft_drive_setup_steps">1. Create a public client/app registration in Microsoft Entra ID or Azure.\n2. Paste the application client id below.\n3. Choose a credential passphrase for the encrypted local session.\n4. Keep local storage as the default mode until the mobile browser callback is completed.\n5. The desktop app already uses the same Microsoft Drive scopes for browser sign-in.</string>

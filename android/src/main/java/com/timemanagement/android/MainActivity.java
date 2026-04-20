@@ -1,5 +1,6 @@
 package com.timemanagement.android;
 
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.view.Menu;
@@ -14,12 +15,21 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AlertDialog;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 
 import com.timemanagement.core.data.JsonDataStore;
 import com.timemanagement.core.dataclass.GoogleAccount;
+import com.timemanagement.core.dataclass.GoogleIdentity;
 import com.timemanagement.core.dataclass.ManagedProfile;
+import com.timemanagement.core.program.GoogleLoginManager;
 import com.timemanagement.core.program.LocalStorageAccountManager;
 import com.timemanagement.core.program.ProfileManager;
+import com.google.android.gms.auth.api.signin.GoogleSignIn;
+import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
+import com.google.android.gms.auth.api.signin.GoogleSignInClient;
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
+import com.google.android.gms.common.api.ApiException;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -32,14 +42,16 @@ import java.util.stream.Stream;
 
 public class MainActivity extends AppCompatActivity {
     private static final String STORAGE_PREFS = "storage-setup";
-    private static final String GOOGLE_CLIENT_ID_KEY = "google-client-id";
     private static final String MICROSOFT_CLIENT_ID_KEY = "microsoft-client-id";
 
+    private GoogleLoginManager googleLoginManager;
     private ProfileManager profileManager;
     private LocalStorageAccountManager localStorageAccountManager;
+    private GoogleSignInClient googleSignInClient;
+    private ActivityResultLauncher<Intent> googleSignInLauncher;
     private SharedPreferences preferences;
     private Path dataDirectory;
-    private String currentAccountId;
+    private GoogleAccount currentAccount;
 
     private TextView storageStatusLabel;
     private TextView accountLabel;
@@ -49,10 +61,9 @@ public class MainActivity extends AppCompatActivity {
     private ListView profileListView;
     private TextView googleSetupStatus;
     private TextView microsoftSetupStatus;
-    private EditText googleClientIdField;
-    private EditText googlePassphraseField;
     private EditText microsoftClientIdField;
     private EditText microsoftPassphraseField;
+    private Button signOutGoogleButton;
     private View localStorageSection;
     private View googleDriveSection;
     private View microsoftDriveSection;
@@ -62,12 +73,23 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        googleSignInLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> handleGoogleSignInResult(result.getData())
+        );
         setContentView(R.layout.activity_main);
 
         dataDirectory = getFilesDir().toPath().resolve("data");
         JsonDataStore dataStore = new JsonDataStore(dataDirectory);
+        googleLoginManager = new GoogleLoginManager(dataStore);
         profileManager = new ProfileManager(dataStore);
         localStorageAccountManager = new LocalStorageAccountManager(dataStore);
+        googleSignInClient = GoogleSignIn.getClient(
+                this,
+                new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                        .requestEmail()
+                        .build()
+        );
         preferences = getSharedPreferences(STORAGE_PREFS, MODE_PRIVATE);
 
         storageStatusLabel = findViewById(R.id.storageStatusLabel);
@@ -78,10 +100,9 @@ public class MainActivity extends AppCompatActivity {
         profileListView = findViewById(R.id.profileListView);
         googleSetupStatus = findViewById(R.id.googleSetupStatus);
         microsoftSetupStatus = findViewById(R.id.microsoftSetupStatus);
-        googleClientIdField = findViewById(R.id.googleClientIdField);
-        googlePassphraseField = findViewById(R.id.googlePassphraseField);
         microsoftClientIdField = findViewById(R.id.microsoftClientIdField);
         microsoftPassphraseField = findViewById(R.id.microsoftPassphraseField);
+        signOutGoogleButton = findViewById(R.id.signOutGoogleButton);
         localStorageSection = findViewById(R.id.localStorageSection);
         googleDriveSection = findViewById(R.id.googleDriveSection);
         microsoftDriveSection = findViewById(R.id.microsoftDriveSection);
@@ -89,17 +110,15 @@ public class MainActivity extends AppCompatActivity {
         profileAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, profileItems);
         profileListView.setAdapter(profileAdapter);
 
-        GoogleAccount localAccount = localStorageAccountManager.useLocalStorage();
-        currentAccountId = localAccount.getAccountId();
-        accountLabel.setText(getString(R.string.signed_in_as, currentAccountId));
-        refreshProfiles();
+        updateActiveAccount(localStorageAccountManager.useLocalStorage());
         loadSavedSetup();
+        refreshGoogleSignInState();
 
         Button addProfileButton = findViewById(R.id.addProfileButton);
         addProfileButton.setOnClickListener(v -> addProfile());
         findViewById(R.id.browseDataDirectoryButton).setOnClickListener(v -> browseDataDirectory());
-        findViewById(R.id.saveGoogleSetupButton).setOnClickListener(v -> saveGoogleSetup());
-        findViewById(R.id.clearGoogleSetupButton).setOnClickListener(v -> clearGoogleSetup());
+        findViewById(R.id.signInWithGoogleButton).setOnClickListener(v -> signInWithGoogle());
+        signOutGoogleButton.setOnClickListener(v -> signOutGoogle());
         findViewById(R.id.saveMicrosoftSetupButton).setOnClickListener(v -> saveMicrosoftSetup());
         findViewById(R.id.clearMicrosoftSetupButton).setOnClickListener(v -> clearMicrosoftSetup());
 
@@ -121,6 +140,7 @@ public class MainActivity extends AppCompatActivity {
             return true;
         }
         if (itemId == R.id.menuConnectGoogleDrive) {
+            refreshGoogleSignInState();
             showSection(googleDriveSection, getString(R.string.google_drive_title));
             return true;
         }
@@ -152,7 +172,7 @@ public class MainActivity extends AppCompatActivity {
         }
 
         try {
-            profileManager.createProfile(currentAccountId, name, type);
+            profileManager.createProfile(currentAccount.getAccountId(), name, type);
             profileNameField.setText("");
             profileTypeField.setText("");
             refreshProfiles();
@@ -161,30 +181,40 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void saveGoogleSetup() {
-        String clientId = googleClientIdField.getText().toString().trim();
-        String passphrase = googlePassphraseField.getText().toString();
-        if (clientId.isEmpty()) {
-            Toast.makeText(this, getString(R.string.error_google_client_id_required), Toast.LENGTH_SHORT).show();
-            return;
-        }
-        if (passphrase.isEmpty()) {
-            Toast.makeText(this, getString(R.string.error_google_passphrase_required), Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        preferences.edit().putString(GOOGLE_CLIENT_ID_KEY, clientId).apply();
-        googlePassphraseField.setText("");
-        googleSetupStatus.setText(getString(R.string.google_drive_setup_saved));
-        Toast.makeText(this, getString(R.string.google_drive_setup_saved), Toast.LENGTH_LONG).show();
+    private void signInWithGoogle() {
+        googleSignInLauncher.launch(googleSignInClient.getSignInIntent());
     }
 
-    private void clearGoogleSetup() {
-        preferences.edit().remove(GOOGLE_CLIENT_ID_KEY).apply();
-        googleClientIdField.setText("");
-        googlePassphraseField.setText("");
-        googleSetupStatus.setText(getString(R.string.google_drive_setup_cleared));
-        Toast.makeText(this, getString(R.string.google_drive_setup_cleared), Toast.LENGTH_SHORT).show();
+    private void handleGoogleSignInResult(Intent data) {
+        try {
+            GoogleSignInAccount signedInAccount = GoogleSignIn.getSignedInAccountFromIntent(data)
+                    .getResult(ApiException.class);
+            if (signedInAccount == null || signedInAccount.getId() == null || signedInAccount.getEmail() == null) {
+                throw new IllegalStateException(getString(R.string.error_google_sign_in_failed));
+            }
+
+            GoogleAccount account = googleLoginManager.login(new GoogleIdentity(
+                    signedInAccount.getId(),
+                    signedInAccount.getEmail(),
+                    signedInAccount.getDisplayName()
+            ));
+            updateActiveAccount(account);
+            googleSetupStatus.setText(getString(R.string.google_drive_connected_as, describeAccount(account)));
+            signOutGoogleButton.setEnabled(true);
+        } catch (ApiException | RuntimeException e) {
+            Toast.makeText(this, getString(R.string.error_google_sign_in_failed), Toast.LENGTH_LONG).show();
+            refreshGoogleSignInState();
+        }
+    }
+
+    private void signOutGoogle() {
+        googleSignInClient.signOut().addOnCompleteListener(task -> {
+            if (currentAccount != null && "google".equals(currentAccount.getProvider())) {
+                updateActiveAccount(localStorageAccountManager.useLocalStorage());
+            }
+            refreshGoogleSignInState();
+            Toast.makeText(this, getString(R.string.google_drive_signed_out), Toast.LENGTH_SHORT).show();
+        });
     }
 
     private void saveMicrosoftSetup() {
@@ -214,7 +244,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void loadSavedSetup() {
-        googleClientIdField.setText(preferences.getString(GOOGLE_CLIENT_ID_KEY, ""));
         microsoftClientIdField.setText(preferences.getString(MICROSOFT_CLIENT_ID_KEY, ""));
     }
 
@@ -272,10 +301,54 @@ public class MainActivity extends AppCompatActivity {
 
     private void refreshProfiles() {
         profileItems.clear();
-        List<ManagedProfile> profiles = profileManager.listProfiles(currentAccountId);
+        List<ManagedProfile> profiles = profileManager.listProfiles(currentAccount.getAccountId());
         for (ManagedProfile profile : profiles) {
             profileItems.add(profile.getProfileName() + " (" + profile.getProfileType() + ")");
         }
         profileAdapter.notifyDataSetChanged();
+    }
+
+    private void refreshGoogleSignInState() {
+        GoogleSignInAccount signedInAccount = GoogleSignIn.getLastSignedInAccount(this);
+        boolean signedIn = signedInAccount != null && signedInAccount.getEmail() != null;
+        signOutGoogleButton.setEnabled(signedIn);
+        if (signedIn) {
+            googleSetupStatus.setText(getString(
+                    R.string.google_drive_available_as,
+                    describeGoogleAccount(signedInAccount)
+            ));
+            return;
+        }
+        googleSetupStatus.setText(getString(R.string.google_drive_setup_default_status));
+    }
+
+    private void updateActiveAccount(GoogleAccount account) {
+        currentAccount = account;
+        accountLabel.setText(getString(R.string.signed_in_as, describeAccount(account)));
+        refreshProfiles();
+    }
+
+    private String describeAccount(GoogleAccount account) {
+        if (account.getEmail() == null || account.getEmail().isBlank()) {
+            return account.getDisplayName();
+        }
+        if (account.getDisplayName() == null
+                || account.getDisplayName().isBlank()
+                || account.getDisplayName().equals(account.getEmail())) {
+            return account.getEmail();
+        }
+        return account.getDisplayName() + " (" + account.getEmail() + ")";
+    }
+
+    private String describeGoogleAccount(GoogleSignInAccount account) {
+        String email = account.getEmail();
+        String displayName = account.getDisplayName();
+        if (email == null || email.isBlank()) {
+            return displayName == null || displayName.isBlank() ? getString(R.string.google_drive_title) : displayName;
+        }
+        if (displayName == null || displayName.isBlank() || displayName.equals(email)) {
+            return email;
+        }
+        return displayName + " (" + email + ")";
     }
 }

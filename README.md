@@ -50,7 +50,7 @@ The desktop flow requests these scopes:
 - `profile`
 - `https://www.googleapis.com/auth/drive.file`
 
-The Android **Connect Google Drive** menu page now documents the OAuth setup values the mobile app needs while leaving local storage as the default mode.
+The Android **Connect Google Drive** menu page now uses the normal Google account picker to identify the active user while leaving local storage available from the menu.
 
 ## Microsoft OAuth desktop setup
 
