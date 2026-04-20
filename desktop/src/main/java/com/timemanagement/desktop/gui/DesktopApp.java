@@ -32,7 +32,7 @@ public class DesktopApp {
     private final ProfileManager profileManager;
     private final DesktopOAuthCredentialStore<GoogleOAuthSession> googleCredentialStore;
     private final DesktopOAuthCredentialStore<MicrosoftOAuthSession> microsoftCredentialStore;
-    private final Path dataDirectory;
+    private Path dataDirectory;
     private GoogleAccount currentAccount;
 
     public DesktopApp(Path dataDir) {
@@ -216,29 +216,66 @@ public class DesktopApp {
         JPanel panel = new JPanel(new BorderLayout(8, 8));
 
         JTextField dataDirectoryField = new JTextField(dataDirectory.toAbsolutePath().normalize().toString());
-        dataDirectoryField.setEditable(false);
+        dataDirectoryField.setEditable(true);
+        dataDirectoryField.addActionListener(event -> applyDataDirectoryFromField(panel, dataDirectoryField));
+        dataDirectoryField.addFocusListener(new java.awt.event.FocusAdapter() {
+            @Override
+            public void focusLost(java.awt.event.FocusEvent e) {
+                applyDataDirectoryFromField(panel, dataDirectoryField);
+            }
+        });
 
-        JButton browseFolderButton = new JButton("Select Folder");
-        browseFolderButton.addActionListener(event -> browseDesktopDataDirectory(panel));
+        JButton selectFolderButton = new JButton("Select Folder");
+        selectFolderButton.addActionListener(event -> selectDesktopDataDirectory(panel, dataDirectoryField));
 
         JPanel directoryPanel = new JPanel(new BorderLayout(6, 6));
         directoryPanel.setBorder(BorderFactory.createTitledBorder("Data directory"));
         directoryPanel.add(dataDirectoryField, BorderLayout.CENTER);
-        directoryPanel.add(browseFolderButton, BorderLayout.EAST);
+        directoryPanel.add(selectFolderButton, BorderLayout.EAST);
 
         panel.add(directoryPanel, BorderLayout.NORTH);
         return panel;
     }
 
-    private void browseDesktopDataDirectory(Component parent) {
-        try {
-            Files.createDirectories(dataDirectory);
-            if (!Desktop.isDesktopSupported()) {
-                throw new IllegalStateException("Desktop folder browsing is not supported on this system.");
+    private void selectDesktopDataDirectory(Component parent, JTextField dataDirectoryField) {
+        JFileChooser chooser = new JFileChooser();
+        chooser.setDialogTitle("Select data directory");
+        chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+        chooser.setAcceptAllFileFilterUsed(false);
+        File current = dataDirectory.toAbsolutePath().normalize().toFile();
+        if (current.isDirectory()) {
+            chooser.setCurrentDirectory(current);
+            chooser.setSelectedFile(current);
+        }
+        if (chooser.showDialog(parent, "Select Folder") == JFileChooser.APPROVE_OPTION) {
+            File selected = chooser.getSelectedFile();
+            if (selected != null) {
+                Path chosen = selected.toPath().toAbsolutePath().normalize();
+                try {
+                    Files.createDirectories(chosen);
+                    dataDirectory = chosen;
+                    dataDirectoryField.setText(chosen.toString());
+                } catch (IOException ex) {
+                    JOptionPane.showMessageDialog(parent, ex.getMessage(), "Select folder failed", JOptionPane.ERROR_MESSAGE);
+                }
             }
-            Desktop.getDesktop().open(dataDirectory.toFile());
+        }
+    }
+
+    private void applyDataDirectoryFromField(Component parent, JTextField dataDirectoryField) {
+        String text = dataDirectoryField.getText();
+        if (text == null || text.isBlank()) {
+            dataDirectoryField.setText(dataDirectory.toAbsolutePath().normalize().toString());
+            return;
+        }
+        try {
+            Path typed = Path.of(text.trim()).toAbsolutePath().normalize();
+            Files.createDirectories(typed);
+            dataDirectory = typed;
+            dataDirectoryField.setText(typed.toString());
         } catch (IOException | RuntimeException ex) {
             JOptionPane.showMessageDialog(parent, ex.getMessage(), "Select folder failed", JOptionPane.ERROR_MESSAGE);
+            dataDirectoryField.setText(dataDirectory.toAbsolutePath().normalize().toString());
         }
     }
 

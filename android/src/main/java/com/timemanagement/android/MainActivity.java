@@ -43,7 +43,7 @@ public class MainActivity extends AppCompatActivity {
 
     private TextView storageStatusLabel;
     private TextView accountLabel;
-    private TextView dataDirectoryLabel;
+    private EditText dataDirectoryLabel;
     private EditText profileNameField;
     private EditText profileTypeField;
     private ListView profileListView;
@@ -219,20 +219,24 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void browseDataDirectory() {
+        String typed = dataDirectoryLabel.getText().toString().trim();
+        Path target = typed.isEmpty() ? dataDirectory : Path.of(typed);
         try {
-            Files.createDirectories(dataDirectory);
+            Files.createDirectories(target);
+            dataDirectory = target;
+            dataDirectoryLabel.setText(target.toAbsolutePath().normalize().toString());
             String contents = listDataDirectoryContents();
             new AlertDialog.Builder(this)
-                    .setTitle(R.string.browse_folder_dialog_title)
+                    .setTitle(R.string.select_folder_dialog_title)
                     .setMessage(getString(
-                            R.string.browse_folder_dialog_message,
-                            dataDirectory.toAbsolutePath().normalize(),
+                            R.string.select_folder_dialog_message,
+                            target.toAbsolutePath().normalize(),
                             contents
                     ))
                     .setPositiveButton(android.R.string.ok, null)
                     .show();
-        } catch (IOException e) {
-            Toast.makeText(this, getString(R.string.browse_folder_failed), Toast.LENGTH_LONG).show();
+        } catch (IOException | RuntimeException e) {
+            Toast.makeText(this, getString(R.string.select_folder_failed), Toast.LENGTH_LONG).show();
         }
     }
 
@@ -241,11 +245,11 @@ public class MainActivity extends AppCompatActivity {
             List<String> items = paths
                     .sorted(Comparator.comparing(path -> path.getFileName().toString().toLowerCase()))
                     .map(path -> Files.isDirectory(path)
-                            ? getString(R.string.browse_folder_item_directory, path.getFileName())
-                            : getString(R.string.browse_folder_item_file, path.getFileName()))
+                            ? getString(R.string.select_folder_item_directory, path.getFileName())
+                            : getString(R.string.select_folder_item_file, path.getFileName()))
                     .collect(Collectors.toList());
             return items.isEmpty()
-                    ? getString(R.string.browse_folder_empty)
+                    ? getString(R.string.select_folder_empty)
                     : String.join("\n", items);
         }
     }

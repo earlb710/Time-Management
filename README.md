@@ -25,9 +25,9 @@ Both apps now start in a local-storage mode automatically:
 
 - Desktop stores profile/account JSON in `data/`
 - Android stores profile/account JSON in `/data/data/com.timemanagement.android/files/data/`
-- Both local-storage pages show the current data directory
-- Desktop exposes a **Select Folder** button that opens that directory in the OS file browser
-- Android exposes a **Select Folder** button that shows the app-local folder path and current contents in-app
+- Both local-storage pages show the current data directory in an editable field
+- Desktop exposes a **Select Folder** button that opens a directory chooser and updates the data directory
+- Android exposes a **Select Folder** button that applies the path typed into the data-directory field and lists its contents in-app
 
 Cloud connections are optional and live behind each app's storage menu.
 
