@@ -243,6 +243,10 @@ public class DesktopApp {
                     options[0]
             );
 
+            if (choice == JOptionPane.CLOSED_OPTION) {
+                frame.dispose();
+                return;
+            }
             if (choice == 0) {
                 preferences.putBoolean(INITIAL_LOGIN_PROMPT_COMPLETED_KEY, true);
                 showDesktopCard(desktopView, GOOGLE_DRIVE_CARD, "Continue with Google login to identify the active user.");
