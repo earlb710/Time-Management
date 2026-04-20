@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Time Management</string>
+    <string name="label_account_id">Account ID</string>
+    <string name="hint_account_id">Enter account ID</string>
+    <string name="button_set_account">Use Account</string>
+    <string name="not_signed_in">No account selected</string>
+    <string name="signed_in_as">Account: %1$s</string>
+    <string name="label_profile_name">Profile Name</string>
+    <string name="hint_profile_name">Enter profile name</string>
+    <string name="label_profile_type">Profile Type</string>
+    <string name="hint_profile_type">person or service</string>
+    <string name="button_add_profile">Add Profile</string>
+    <string name="label_profiles">Profiles</string>
+    <string name="error_account_id_required">Please enter an account ID first.</string>
+    <string name="error_profile_name_required">Profile name is required.</string>
+    <string name="error_profile_type_required">Profile type is required.</string>
+</resources>

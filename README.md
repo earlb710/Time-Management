@@ -5,7 +5,7 @@ Minimal starter implementation matching the requested architecture:
 - `data/` → JSON files (`accounts.json`, `profiles.json`)
 - `core` module → shared **data classes** and **program classes** for desktop + android
 - `desktop` module → desktop **GUI classes** (Swing)
-- `android` module → android-specific **GUI placeholder classes** that reuse shared core logic
+- `android` module → real Android app with `MainActivity` that uses the shared core logic
 
 ## Implemented requirements
 
@@ -73,18 +73,26 @@ mvn -pl core,desktop -am install -DskipTests
 mvn -f desktop/pom.xml -Dexec.mainClass=com.timemanagement.desktop.gui.DesktopApp exec:java
 ```
 
-## Run in Android Studio
+## Run the Android app in Android Studio
 
-Open `/home/runner/work/Time-Management/Time-Management` in Android Studio as a Maven project. The repository now includes shared run configurations in `.run/`:
+Open the repository root in Android Studio. Android Studio detects `settings.gradle.kts` and imports the Gradle project with two modules:
 
-- `Desktop App` → launches `com.timemanagement.desktop.gui.DesktopApp`
-- `Android Placeholder App` → launches `com.timemanagement.android.gui.AndroidPlaceholderApp`
+- `:core` — shared Java library (data classes, profile/login managers)
+- `:android` — real Android app (`com.timemanagement.android`)
 
-Both run configurations are Maven-based, build any required reactor modules automatically, and use the repository root as the working directory so the existing `data/` folder is resolved correctly.
+Android Studio shows the **app** run configuration automatically. Connect a device or start an emulator, then press **Run** to build and deploy the APK. The app lets you:
 
-If Android Studio says it cannot find either main class, reload the Maven project first so the `core`, `desktop`, and `android` modules are imported before running the shared configuration.
+1. Enter any account ID and press **Use Account**
+2. Add profiles (name + type) associated with that account
+3. See all profiles for the active account in a scrollable list
 
-The Android module is still a Java placeholder module, so the Android Studio configuration runs the placeholder launcher rather than a packaged APK.
+Data is persisted in the app's internal files directory at `/data/data/com.timemanagement.android/files/data/` (visible in Device File Explorer).
+
+> **Tip:** If Android Studio does not pick up modules after opening, choose **File → Sync Project with Gradle Files**.
+
+## Run the desktop app in Android Studio
+
+The `.run/Desktop App.run.xml` Maven configuration launches the Swing desktop app. Android Studio also imports the Maven `core` and `desktop` modules, so the shared configuration is available in the run dropdown. Use **Maven** tool window → reload if the `desktop` module is not visible.
 
 ## Generate desktop UI screenshot
 

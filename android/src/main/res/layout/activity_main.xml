@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/label_account_id"
+        android:textAppearance="?attr/textAppearanceBodyMedium" />
+
+    <EditText
+        android:id="@+id/accountIdField"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="@string/hint_account_id"
+        android:inputType="text"
+        android:maxLines="1" />
+
+    <Button
+        android:id="@+id/setAccountButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="@string/button_set_account" />
+
+    <TextView
+        android:id="@+id/accountLabel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="@string/not_signed_in"
+        android:textAppearance="?attr/textAppearanceBodyMedium" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginVertical="12dp"
+        android:background="?attr/colorOutline" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/label_profile_name"
+        android:textAppearance="?attr/textAppearanceBodyMedium" />
+
+    <EditText
+        android:id="@+id/profileNameField"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="@string/hint_profile_name"
+        android:inputType="text"
+        android:maxLines="1" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="@string/label_profile_type"
+        android:textAppearance="?attr/textAppearanceBodyMedium" />
+
+    <EditText
+        android:id="@+id/profileTypeField"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="@string/hint_profile_type"
+        android:inputType="text"
+        android:maxLines="1" />
+
+    <Button
+        android:id="@+id/addProfileButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:enabled="false"
+        android:text="@string/button_add_profile" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginVertical="12dp"
+        android:background="?attr/colorOutline" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/label_profiles"
+        android:textAppearance="?attr/textAppearanceTitleMedium" />
+
+    <ListView
+        android:id="@+id/profileListView"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginTop="8dp" />
+
+</LinearLayout>
