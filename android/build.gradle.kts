@@ -2,7 +2,9 @@ import org.gradle.api.GradleException
 import java.io.File
 import java.util.Properties
 
-apply(plugin = "com.android.application")
+plugins {
+    id("com.android.application")
+}
 
 android {
     namespace = "com.timemanagement.android"
