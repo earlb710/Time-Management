@@ -2,6 +2,7 @@ package com.timemanagement.desktop.gui;
 
 import com.timemanagement.core.data.JsonDataStore;
 import com.timemanagement.core.dataclass.GoogleAccount;
+import com.timemanagement.core.dataclass.GoogleOAuthSession;
 import com.timemanagement.core.dataclass.ManagedProfile;
 import com.timemanagement.core.program.GoogleLoginManager;
 import com.timemanagement.core.program.ProfileManager;
@@ -16,12 +17,15 @@ import java.nio.file.Path;
 public class DesktopApp {
     private final GoogleLoginManager loginManager;
     private final ProfileManager profileManager;
+    private final DesktopOAuthCredentialStore credentialStore;
     private GoogleAccount currentAccount;
 
     public DesktopApp(Path dataDir) {
         JsonDataStore dataStore = new JsonDataStore(dataDir);
         this.loginManager = new GoogleLoginManager(dataStore);
         this.profileManager = new ProfileManager(dataStore);
+        Path oauthSessionPath = Path.of(System.getProperty("user.home"), ".time-management", "google-oauth-session.enc");
+        this.credentialStore = new DesktopOAuthCredentialStore(oauthSessionPath);
     }
 
     public static void main(String[] args) {
@@ -80,18 +84,20 @@ public class DesktopApp {
     private JPanel createContentPanel() {
         JPanel panel = new JPanel(new BorderLayout(8, 8));
 
-        JPanel loginPanel = new JPanel(new GridLayout(3, 2, 6, 6));
-        JTextField emailField = new JTextField();
-        JTextField nameField = new JTextField();
+        JPanel loginPanel = new JPanel(new GridLayout(4, 2, 6, 6));
+        JPasswordField passphraseField = new JPasswordField();
         JButton loginButton = new JButton("Sign in with Google");
+        JButton restoreButton = new JButton("Use Saved Session");
+        JButton clearSessionButton = new JButton("Forget Saved Session");
         JLabel accountLabel = new JLabel("Not signed in");
 
-        loginPanel.add(new JLabel("Google email:"));
-        loginPanel.add(emailField);
-        loginPanel.add(new JLabel("Display name:"));
-        loginPanel.add(nameField);
+        loginPanel.add(new JLabel("Credential passphrase:"));
+        loginPanel.add(passphraseField);
         loginPanel.add(loginButton);
+        loginPanel.add(restoreButton);
+        loginPanel.add(clearSessionButton);
         loginPanel.add(accountLabel);
+        loginPanel.add(new JLabel("Requires TIME_MANAGEMENT_GOOGLE_CLIENT_ID"));
 
         DefaultListModel<String> profileListModel = new DefaultListModel<>();
         JList<String> profileList = new JList<>(profileListModel);
@@ -110,12 +116,34 @@ public class DesktopApp {
 
         loginButton.addActionListener(event -> {
             try {
-                currentAccount = loginManager.login(emailField.getText(), nameField.getText());
-                accountLabel.setText("Signed in as " + currentAccount.getDisplayName());
-                refreshProfiles(profileListModel);
-                addProfileButton.setEnabled(true);
+                GoogleOAuthSession session = oauthService().signIn(readPassphrase(passphraseField));
+                currentAccount = loginManager.login(session.getIdentity());
+                updateSignedInState(accountLabel, profileListModel, addProfileButton);
             } catch (RuntimeException ex) {
                 JOptionPane.showMessageDialog(panel, ex.getMessage(), "Login failed", JOptionPane.ERROR_MESSAGE);
+            }
+        });
+
+        restoreButton.addActionListener(event -> {
+            try {
+                GoogleOAuthSession session = oauthService().restoreSession(readPassphrase(passphraseField))
+                        .orElseThrow(() -> new IllegalStateException("No saved Google session was found."));
+                currentAccount = loginManager.login(session.getIdentity());
+                updateSignedInState(accountLabel, profileListModel, addProfileButton);
+            } catch (RuntimeException ex) {
+                JOptionPane.showMessageDialog(panel, ex.getMessage(), "Restore failed", JOptionPane.ERROR_MESSAGE);
+            }
+        });
+
+        clearSessionButton.addActionListener(event -> {
+            try {
+                credentialStore.clear();
+                currentAccount = null;
+                accountLabel.setText("Not signed in");
+                profileListModel.clear();
+                addProfileButton.setEnabled(false);
+            } catch (RuntimeException ex) {
+                JOptionPane.showMessageDialog(panel, ex.getMessage(), "Sign out failed", JOptionPane.ERROR_MESSAGE);
             }
         });
 
@@ -143,6 +171,24 @@ public class DesktopApp {
         panel.add(profileInput, BorderLayout.SOUTH);
         panel.setPreferredSize(new Dimension(640, 420));
         return panel;
+    }
+
+    private char[] readPassphrase(JPasswordField passphraseField) {
+        char[] passphrase = passphraseField.getPassword();
+        if (passphrase == null || passphrase.length == 0) {
+            throw new IllegalArgumentException("Enter a credential passphrase before signing in.");
+        }
+        return passphrase;
+    }
+
+    private void updateSignedInState(JLabel accountLabel, DefaultListModel<String> profileListModel, JButton addProfileButton) {
+        accountLabel.setText("Signed in as " + currentAccount.getDisplayName());
+        refreshProfiles(profileListModel);
+        addProfileButton.setEnabled(true);
+    }
+
+    private DesktopGoogleOAuthService oauthService() {
+        return new DesktopGoogleOAuthService(DesktopOAuthClientConfig.loadFromEnvironment(), credentialStore);
     }
 
     private void refreshProfiles(DefaultListModel<String> profileListModel) {

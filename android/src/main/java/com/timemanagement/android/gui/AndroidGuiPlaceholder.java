@@ -1,6 +1,8 @@
 package com.timemanagement.android.gui;
 
 import com.timemanagement.core.dataclass.GoogleAccount;
+import com.timemanagement.core.dataclass.GoogleIdentity;
+import com.timemanagement.core.dataclass.GoogleOAuthSession;
 import com.timemanagement.core.dataclass.ManagedProfile;
 import com.timemanagement.core.program.GoogleLoginManager;
 import com.timemanagement.core.program.ProfileManager;
@@ -16,8 +18,15 @@ public class AndroidGuiPlaceholder {
         this.profileManager = profileManager;
     }
 
-    public GoogleAccount signInWithGoogle(String email, String displayName) {
-        return loginManager.login(email, displayName);
+    public GoogleAccount signInWithGoogle(GoogleIdentity identity) {
+        return loginManager.login(identity);
+    }
+
+    public GoogleAccount restoreGoogleSession(GoogleOAuthSession session) {
+        if (session == null) {
+            throw new IllegalArgumentException("OAuth session is required.");
+        }
+        return loginManager.login(session.getIdentity());
     }
 
     public ManagedProfile createProfile(String accountId, String profileName, String profileType) {

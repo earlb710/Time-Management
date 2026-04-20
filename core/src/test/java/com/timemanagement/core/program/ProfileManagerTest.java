@@ -2,6 +2,7 @@ package com.timemanagement.core.program;
 
 import com.timemanagement.core.data.JsonDataStore;
 import com.timemanagement.core.dataclass.GoogleAccount;
+import com.timemanagement.core.dataclass.GoogleIdentity;
 import com.timemanagement.core.dataclass.ManagedProfile;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -11,6 +12,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ProfileManagerTest {
     @TempDir
@@ -22,7 +24,7 @@ class ProfileManagerTest {
         GoogleLoginManager loginManager = new GoogleLoginManager(dataStore);
         ProfileManager profileManager = new ProfileManager(dataStore);
 
-        GoogleAccount account = loginManager.login("person@gmail.com", "Person");
+        GoogleAccount account = loginManager.login(new GoogleIdentity("google-subject-1", "person@gmail.com", "Person"));
 
         profileManager.createProfile(account.getAccountId(), "Personal", "person");
         profileManager.createProfile(account.getAccountId(), "Calendar API", "service");
@@ -32,10 +34,24 @@ class ProfileManagerTest {
     }
 
     @Test
-    void rejectsNonGoogleEmail() {
+    void acceptsGoogleWorkspaceIdentity() {
         JsonDataStore dataStore = new JsonDataStore(tempDir);
         GoogleLoginManager loginManager = new GoogleLoginManager(dataStore);
 
-        assertThrows(IllegalArgumentException.class, () -> loginManager.login("person@example.com", "Person"));
+        GoogleAccount account = loginManager.login(new GoogleIdentity("workspace-subject-1", "person@example.com", "Person"));
+
+        assertEquals("workspace-subject-1", account.getAccountId());
+        assertEquals("person@example.com", account.getEmail());
+    }
+
+    @Test
+    void rejectsMissingSubjectId() {
+        JsonDataStore dataStore = new JsonDataStore(tempDir);
+        GoogleLoginManager loginManager = new GoogleLoginManager(dataStore);
+
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
+                () -> loginManager.login(new GoogleIdentity(" ", "person@gmail.com", "Person")));
+
+        assertTrue(error.getMessage().contains("subject id"));
     }
 }
