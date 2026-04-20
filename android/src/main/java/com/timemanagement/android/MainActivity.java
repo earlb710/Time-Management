@@ -42,6 +42,7 @@ import java.util.stream.Stream;
 
 public class MainActivity extends AppCompatActivity {
     private static final String STORAGE_PREFS = "storage-setup";
+    private static final String INITIAL_LOGIN_PROMPT_COMPLETED_KEY = "initial-login-prompt-completed";
     private static final String MICROSOFT_CLIENT_ID_KEY = "microsoft-client-id";
 
     private GoogleLoginManager googleLoginManager;
@@ -124,6 +125,7 @@ public class MainActivity extends AppCompatActivity {
 
         dataDirectoryLabel.setText(dataDirectory.toAbsolutePath().normalize().toString());
         showSection(localStorageSection, getString(R.string.local_storage_default_status));
+        maybePromptForInitialLogin();
     }
 
     @Override
@@ -215,6 +217,28 @@ public class MainActivity extends AppCompatActivity {
             refreshGoogleSignInState();
             Toast.makeText(this, getString(R.string.google_drive_signed_out), Toast.LENGTH_SHORT).show();
         });
+    }
+
+    private void maybePromptForInitialLogin() {
+        if (preferences.getBoolean(INITIAL_LOGIN_PROMPT_COMPLETED_KEY, false)) {
+            return;
+        }
+
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.initial_login_dialog_title)
+                .setMessage(R.string.initial_login_dialog_message)
+                .setCancelable(false)
+                .setPositiveButton(R.string.button_continue_with_google, (dialog, which) -> {
+                    preferences.edit().putBoolean(INITIAL_LOGIN_PROMPT_COMPLETED_KEY, true).apply();
+                    refreshGoogleSignInState();
+                    showSection(googleDriveSection, getString(R.string.google_drive_title));
+                    signInWithGoogle();
+                })
+                .setNegativeButton(R.string.button_continue_with_microsoft, (dialog, which) -> {
+                    preferences.edit().putBoolean(INITIAL_LOGIN_PROMPT_COMPLETED_KEY, true).apply();
+                    showSection(microsoftDriveSection, getString(R.string.microsoft_drive_title));
+                })
+                .show();
     }
 
     private void saveMicrosoftSetup() {

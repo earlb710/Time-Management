@@ -12,6 +12,7 @@ Minimal starter implementation matching the requested architecture:
 - Desktop and Android both default to local storage for profiles/accounts
 - Desktop storage menu with **Local Storage**, **Connect Google Drive**, and **Connect Microsoft Drive** pages
 - Android storage menu with **Local Storage**, **Connect Google Drive**, and **Connect Microsoft Drive** pages
+- Desktop and Android prompt for Google or Microsoft on first launch before the normal storage pages
 - Desktop Google OAuth 2.0 browser sign-in flow with access tokens, refresh tokens, and encrypted local session storage
 - Desktop Microsoft OAuth 2.0 browser sign-in flow with access tokens, refresh tokens, and encrypted local session storage
 - Shared Google identity/session models so platform-specific sign-in flows can hand real OAuth identities into shared core logic
@@ -30,6 +31,8 @@ Both apps now start in a local-storage mode automatically:
 - Android exposes a **Select Folder** button that applies the path typed into the data-directory field and lists its contents in-app
 
 Cloud connections are optional and live behind each app's storage menu.
+
+On the very first launch, both apps ask whether you want to continue with **Google** or **Microsoft** before showing the rest of the storage UI.
 
 ## Google OAuth desktop setup
 

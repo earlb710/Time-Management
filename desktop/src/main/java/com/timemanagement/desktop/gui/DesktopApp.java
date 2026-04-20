@@ -20,11 +20,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
+import java.util.prefs.Preferences;
 
 public class DesktopApp {
     private static final String LOCAL_STORAGE_CARD = "local-storage";
     private static final String GOOGLE_DRIVE_CARD = "google-drive";
     private static final String MICROSOFT_DRIVE_CARD = "microsoft-drive";
+    private static final String INITIAL_LOGIN_PROMPT_COMPLETED_KEY = "initial-login-prompt-completed";
 
     private final GoogleLoginManager googleLoginManager;
     private final MicrosoftLoginManager microsoftLoginManager;
@@ -32,6 +34,7 @@ public class DesktopApp {
     private final ProfileManager profileManager;
     private final DesktopOAuthCredentialStore<GoogleOAuthSession> googleCredentialStore;
     private final DesktopOAuthCredentialStore<MicrosoftOAuthSession> microsoftCredentialStore;
+    private final Preferences preferences;
     private Path dataDirectory;
     private GoogleAccount currentAccount;
 
@@ -54,6 +57,7 @@ public class DesktopApp {
                 MicrosoftOAuthSession.class,
                 "Microsoft OAuth"
         );
+        this.preferences = Preferences.userNodeForPackage(DesktopApp.class);
         this.currentAccount = localStorageAccountManager.useLocalStorage();
     }
 
@@ -79,6 +83,7 @@ public class DesktopApp {
         frame.pack();
         frame.setLocationRelativeTo(null);
         frame.setVisible(true);
+        maybePromptForInitialLogin(frame, desktopView);
     }
 
     public void exportUiScreenshot(Path outputPath) {
@@ -181,10 +186,18 @@ public class DesktopApp {
         });
 
         JMenuItem googleDriveItem = new JMenuItem("Connect Google Drive");
-        googleDriveItem.addActionListener(event -> desktopView.cardLayout().show(desktopView.pagePanel(), GOOGLE_DRIVE_CARD));
+        googleDriveItem.addActionListener(event -> showDesktopCard(
+                desktopView,
+                GOOGLE_DRIVE_CARD,
+                "Continue with Google login to identify the active user."
+        ));
 
         JMenuItem microsoftDriveItem = new JMenuItem("Connect Microsoft Drive");
-        microsoftDriveItem.addActionListener(event -> desktopView.cardLayout().show(desktopView.pagePanel(), MICROSOFT_DRIVE_CARD));
+        microsoftDriveItem.addActionListener(event -> showDesktopCard(
+                desktopView,
+                MICROSOFT_DRIVE_CARD,
+                "Continue with Microsoft login to identify the active user."
+        ));
 
         storageMenu.add(localStorageItem);
         storageMenu.add(googleDriveItem);
@@ -210,6 +223,42 @@ public class DesktopApp {
         panel.add(content, BorderLayout.NORTH);
         panel.add(createLocalStorageDirectoryPanel(), BorderLayout.CENTER);
         return panel;
+    }
+
+    private void maybePromptForInitialLogin(JFrame frame, DesktopView desktopView) {
+        if (preferences.getBoolean(INITIAL_LOGIN_PROMPT_COMPLETED_KEY, false)) {
+            return;
+        }
+
+        Object[] options = {"Google", "Microsoft"};
+        while (true) {
+            int choice = JOptionPane.showOptionDialog(
+                    frame,
+                    "The first time you open the app, choose Google or Microsoft login.",
+                    "Choose a login",
+                    JOptionPane.DEFAULT_OPTION,
+                    JOptionPane.INFORMATION_MESSAGE,
+                    null,
+                    options,
+                    options[0]
+            );
+
+            if (choice == 0) {
+                preferences.putBoolean(INITIAL_LOGIN_PROMPT_COMPLETED_KEY, true);
+                showDesktopCard(desktopView, GOOGLE_DRIVE_CARD, "Continue with Google login to identify the active user.");
+                return;
+            }
+            if (choice == 1) {
+                preferences.putBoolean(INITIAL_LOGIN_PROMPT_COMPLETED_KEY, true);
+                showDesktopCard(desktopView, MICROSOFT_DRIVE_CARD, "Continue with Microsoft login to identify the active user.");
+                return;
+            }
+        }
+    }
+
+    private void showDesktopCard(DesktopView desktopView, String card, String statusText) {
+        desktopView.cardLayout().show(desktopView.pagePanel(), card);
+        desktopView.storageStatusLabel().setText(statusText);
     }
 
     private JPanel createLocalStorageDirectoryPanel() {
