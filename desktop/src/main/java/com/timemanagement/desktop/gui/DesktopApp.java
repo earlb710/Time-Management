@@ -15,6 +15,8 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
@@ -30,9 +32,11 @@ public class DesktopApp {
     private final ProfileManager profileManager;
     private final DesktopOAuthCredentialStore<GoogleOAuthSession> googleCredentialStore;
     private final DesktopOAuthCredentialStore<MicrosoftOAuthSession> microsoftCredentialStore;
+    private final Path dataDirectory;
     private GoogleAccount currentAccount;
 
     public DesktopApp(Path dataDir) {
+        this.dataDirectory = dataDir;
         JsonDataStore dataStore = new JsonDataStore(dataDir);
         this.googleLoginManager = new GoogleLoginManager(dataStore);
         this.microsoftLoginManager = new MicrosoftLoginManager(dataStore);
@@ -200,11 +204,42 @@ public class DesktopApp {
                 <h2>Local storage is the default</h2>
                 <p>The desktop app stores accounts and profiles in the local <b>data/</b> directory by default.</p>
                 <p>Use the <b>Storage</b> menu to optionally connect Google Drive or Microsoft Drive without giving up the local profile workflow.</p>
-                <p>Saved browser sign-in sessions are encrypted locally under <b>~/.time-management/</b>.</p>
-                </html>
-                """);
+                 <p>Saved browser sign-in sessions are encrypted locally under <b>~/.time-management/</b>.</p>
+                 </html>
+                 """);
         panel.add(content, BorderLayout.NORTH);
+        panel.add(createLocalStorageDirectoryPanel(), BorderLayout.CENTER);
         return panel;
+    }
+
+    private JPanel createLocalStorageDirectoryPanel() {
+        JPanel panel = new JPanel(new BorderLayout(8, 8));
+
+        JTextField dataDirectoryField = new JTextField(dataDirectory.toAbsolutePath().normalize().toString());
+        dataDirectoryField.setEditable(false);
+
+        JButton browseFolderButton = new JButton("Browse Folder");
+        browseFolderButton.addActionListener(event -> browseDesktopDataDirectory(panel));
+
+        JPanel directoryPanel = new JPanel(new BorderLayout(6, 6));
+        directoryPanel.setBorder(BorderFactory.createTitledBorder("Data directory"));
+        directoryPanel.add(dataDirectoryField, BorderLayout.CENTER);
+        directoryPanel.add(browseFolderButton, BorderLayout.EAST);
+
+        panel.add(directoryPanel, BorderLayout.NORTH);
+        return panel;
+    }
+
+    private void browseDesktopDataDirectory(Component parent) {
+        try {
+            Files.createDirectories(dataDirectory);
+            if (!Desktop.isDesktopSupported()) {
+                throw new IllegalStateException("Desktop folder browsing is not supported on this system.");
+            }
+            Desktop.getDesktop().open(dataDirectory.toFile());
+        } catch (IOException | RuntimeException ex) {
+            JOptionPane.showMessageDialog(parent, ex.getMessage(), "Browse folder failed", JOptionPane.ERROR_MESSAGE);
+        }
     }
 
     private JPanel createGoogleDrivePanel(JPanel root,

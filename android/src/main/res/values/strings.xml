@@ -10,7 +10,16 @@
     <string name="local_storage_body">Profiles are saved in the app&apos;s private files directory by default. Use the menu to open Google Drive or Microsoft Drive setup without leaving local storage.</string>
     <string name="not_signed_in">Active storage account: local-storage</string>
     <string name="signed_in_as">Active storage account: %1$s</string>
+    <string name="label_data_directory">Data directory</string>
+    <string name="local_storage_data_directory_placeholder">Loading data directory…</string>
+    <string name="button_browse_folder">Browse Folder</string>
     <string name="local_profiles_note">Multiple profiles per storage account are supported.</string>
+    <string name="browse_folder_dialog_title">Local storage folder</string>
+    <string name="browse_folder_dialog_message">Path: %1$s\n\nContents:\n%2$s</string>
+    <string name="browse_folder_empty">(empty)</string>
+    <string name="browse_folder_item_directory">[dir] %1$s</string>
+    <string name="browse_folder_item_file">%1$s</string>
+    <string name="browse_folder_failed">Could not inspect the local data directory.</string>
 
     <string name="label_profile_name">Profile Name</string>
     <string name="hint_profile_name">Enter profile name</string>

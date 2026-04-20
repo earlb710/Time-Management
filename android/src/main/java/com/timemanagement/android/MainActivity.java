@@ -13,6 +13,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.app.AlertDialog;
 
 import com.timemanagement.core.data.JsonDataStore;
 import com.timemanagement.core.dataclass.GoogleAccount;
@@ -20,9 +21,14 @@ import com.timemanagement.core.dataclass.ManagedProfile;
 import com.timemanagement.core.program.LocalStorageAccountManager;
 import com.timemanagement.core.program.ProfileManager;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Comparator;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class MainActivity extends AppCompatActivity {
     private static final String STORAGE_PREFS = "storage-setup";
@@ -32,10 +38,12 @@ public class MainActivity extends AppCompatActivity {
     private ProfileManager profileManager;
     private LocalStorageAccountManager localStorageAccountManager;
     private SharedPreferences preferences;
+    private Path dataDirectory;
     private String currentAccountId;
 
     private TextView storageStatusLabel;
     private TextView accountLabel;
+    private TextView dataDirectoryLabel;
     private EditText profileNameField;
     private EditText profileTypeField;
     private ListView profileListView;
@@ -56,14 +64,15 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        Path dataDir = getFilesDir().toPath().resolve("data");
-        JsonDataStore dataStore = new JsonDataStore(dataDir);
+        dataDirectory = getFilesDir().toPath().resolve("data");
+        JsonDataStore dataStore = new JsonDataStore(dataDirectory);
         profileManager = new ProfileManager(dataStore);
         localStorageAccountManager = new LocalStorageAccountManager(dataStore);
         preferences = getSharedPreferences(STORAGE_PREFS, MODE_PRIVATE);
 
         storageStatusLabel = findViewById(R.id.storageStatusLabel);
         accountLabel = findViewById(R.id.accountLabel);
+        dataDirectoryLabel = findViewById(R.id.dataDirectoryLabel);
         profileNameField = findViewById(R.id.profileNameField);
         profileTypeField = findViewById(R.id.profileTypeField);
         profileListView = findViewById(R.id.profileListView);
@@ -88,11 +97,13 @@ public class MainActivity extends AppCompatActivity {
 
         Button addProfileButton = findViewById(R.id.addProfileButton);
         addProfileButton.setOnClickListener(v -> addProfile());
+        findViewById(R.id.browseDataDirectoryButton).setOnClickListener(v -> browseDataDirectory());
         findViewById(R.id.saveGoogleSetupButton).setOnClickListener(v -> saveGoogleSetup());
         findViewById(R.id.clearGoogleSetupButton).setOnClickListener(v -> clearGoogleSetup());
         findViewById(R.id.saveMicrosoftSetupButton).setOnClickListener(v -> saveMicrosoftSetup());
         findViewById(R.id.clearMicrosoftSetupButton).setOnClickListener(v -> clearMicrosoftSetup());
 
+        dataDirectoryLabel.setText(dataDirectory.toAbsolutePath().normalize().toString());
         showSection(localStorageSection, getString(R.string.local_storage_default_status));
     }
 
@@ -205,6 +216,38 @@ public class MainActivity extends AppCompatActivity {
     private void loadSavedSetup() {
         googleClientIdField.setText(preferences.getString(GOOGLE_CLIENT_ID_KEY, ""));
         microsoftClientIdField.setText(preferences.getString(MICROSOFT_CLIENT_ID_KEY, ""));
+    }
+
+    private void browseDataDirectory() {
+        try {
+            Files.createDirectories(dataDirectory);
+            String contents = listDataDirectoryContents();
+            new AlertDialog.Builder(this)
+                    .setTitle(R.string.browse_folder_dialog_title)
+                    .setMessage(getString(
+                            R.string.browse_folder_dialog_message,
+                            dataDirectory.toAbsolutePath().normalize(),
+                            contents
+                    ))
+                    .setPositiveButton(android.R.string.ok, null)
+                    .show();
+        } catch (IOException e) {
+            Toast.makeText(this, getString(R.string.browse_folder_failed), Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private String listDataDirectoryContents() throws IOException {
+        try (Stream<Path> paths = Files.list(dataDirectory)) {
+            List<String> items = paths
+                    .sorted(Comparator.comparing(path -> path.getFileName().toString().toLowerCase()))
+                    .map(path -> Files.isDirectory(path)
+                            ? getString(R.string.browse_folder_item_directory, path.getFileName())
+                            : getString(R.string.browse_folder_item_file, path.getFileName()))
+                    .collect(Collectors.toList());
+            return items.isEmpty()
+                    ? getString(R.string.browse_folder_empty)
+                    : String.join("\n", items);
+        }
     }
 
     private void refreshProfiles() {
