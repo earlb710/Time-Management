@@ -25,6 +25,18 @@ tasks.test {
     useJUnitPlatform()
 }
 
+tasks.register("buildDesktopApp") {
+    group = "application"
+    description = "Builds the desktop app."
+    dependsOn("build")
+}
+
+tasks.register("runDesktopApp") {
+    group = "application"
+    description = "Runs the desktop app."
+    dependsOn("run")
+}
+
 tasks.named<JavaExec>("run") {
     workingDir = rootProject.projectDir
 }

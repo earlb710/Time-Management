@@ -69,8 +69,13 @@ mvn -pl core test
 ## Run desktop app
 
 ```bash
-mvn -pl core,desktop -am install -DskipTests
-mvn -f desktop/pom.xml -Dexec.mainClass=com.timemanagement.desktop.gui.DesktopApp exec:java
+./gradlew :desktop:runDesktopApp
+```
+
+## Build desktop app
+
+```bash
+./gradlew :desktop:buildDesktopApp
 ```
 
 ## Run the Android app in Android Studio
@@ -81,7 +86,14 @@ Open the repository root in Android Studio as a Gradle project. After **Sync Pro
 - `:android` — real Android app (`com.timemanagement.android`)
 - `:desktop` — desktop Java application (`com.timemanagement.desktop.gui.DesktopApp`)
 
-Once sync succeeds, Android Studio generates the Android **app** run configuration from the imported `:android` module. Connect a device or start an emulator, then press **Run**. The app lets you:
+Once sync succeeds, Android Studio exposes the checked-in Gradle run configurations:
+
+- **Android App Build** → `:android:buildAndroidApp`
+- **Android App** → `:android:runAndroidApp`
+- **Desktop App Build** → `:desktop:buildDesktopApp`
+- **Desktop App** → `:desktop:runDesktopApp`
+
+For the Android run task, connect a device or start an emulator first. The task installs the debug build and launches `MainActivity` through `adb`. The app lets you:
 
 1. Enter any account ID and press **Use Account**
 2. Add profiles (name + type) associated with that account
@@ -89,15 +101,28 @@ Once sync succeeds, Android Studio generates the Android **app** run configurati
 
 Data is persisted in the app's internal files directory at `/data/data/com.timemanagement.android/files/data/` (visible in Device File Explorer).
 
-> **Tip:** This repository no longer checks in a shared Android `.run` file because the generated module name is IDE-specific. If the Android run target is missing, run **File → Sync Project with Gradle Files** and Android Studio will recreate it from the Gradle model. The first sync also needs network access to Google Maven so Android Gradle Plugin artifacts can be downloaded.
+> **Tip:** The Android and desktop IDE targets are now Gradle task configurations, so they do not depend on IDE-generated module IDs. The first Gradle sync still needs network access to Google Maven so Android Gradle Plugin artifacts can be downloaded.
 
 ## Run the desktop app in Android Studio
 
-Use the checked-in **Desktop App** Gradle run configuration. It runs `:desktop:run`, uses the Gradle Java 17 toolchain automatically, and sets the working directory to the repository root so the existing `data/` directory resolves correctly.
+Use the checked-in **Desktop App** and **Desktop App Build** Gradle configurations. They run `:desktop:runDesktopApp` and `:desktop:buildDesktopApp`, use the Gradle Java 17 toolchain automatically, and keep the working directory at the repository root so the existing `data/` directory resolves correctly.
+
+## Build Android app
+
+```bash
+./gradlew :android:buildAndroidApp
+```
+
+## Run Android app
+
+```bash
+./gradlew :android:runAndroidApp
+```
+
+`runAndroidApp` requires a connected device or emulator plus `adb` available from `ANDROID_SDK_ROOT`, `ANDROID_HOME`, or `local.properties`.
 
 ## Generate desktop UI screenshot
 
 ```bash
-mvn -pl core,desktop -am install -DskipTests
-mvn -f desktop/pom.xml -Dexec.mainClass=com.timemanagement.desktop.gui.DesktopApp -Dexec.args="--screenshot /tmp/time-management-desktop-ui.png" exec:java
+./gradlew :desktop:runDesktopApp --args="--screenshot /tmp/time-management-desktop-ui.png"
 ```
