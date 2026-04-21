@@ -85,7 +85,7 @@ public class DesktopApp {
         frame.pack();
         frame.setLocationRelativeTo(null);
         frame.setVisible(true);
-        maybePromptForRequiredGoogleLogin(frame, desktopView);
+        maybePromptForRequiredLogin(frame, desktopView);
     }
 
     public void exportUiScreenshot(Path outputPath) {
@@ -227,36 +227,26 @@ public class DesktopApp {
         return panel;
     }
 
-    private void maybePromptForRequiredGoogleLogin(JFrame frame, DesktopView desktopView) {
+    private void maybePromptForRequiredLogin(JFrame frame, DesktopView desktopView) {
         if (!requiresStartupLogin()) {
             return;
         }
-        if (!promptForVerifiedGoogleLogin(frame, desktopView)) {
+        if (!promptForStartupLogin(frame, desktopView)) {
             frame.dispose();
         }
     }
 
-    private boolean promptForVerifiedGoogleLogin(JFrame frame, DesktopView desktopView) {
-        JTextField clientIdField = new JTextField(valueOrEmpty(DesktopOAuthClientConfig.defaultGoogleClientId()));
-        JPasswordField passphraseField = new JPasswordField();
-        JPanel promptPanel = new JPanel(new GridLayout(0, 1, 0, 8));
-        promptPanel.add(new JLabel("""
-                <html>
-                <p>Google login is required before you can use the app.</p>
-                <p>Sign in with Google to verify the active user, or restore a previously saved verified Google session.</p>
-                </html>
-                """));
-        promptPanel.add(new JLabel("Google OAuth client id:"));
-        promptPanel.add(clientIdField);
-        promptPanel.add(new JLabel("Credential passphrase:"));
-        promptPanel.add(passphraseField);
-
-        Object[] options = {"Sign in with Google", "Use Saved Session", "Cancel"};
+    private boolean promptForStartupLogin(JFrame frame, DesktopView desktopView) {
+        Object[] options = {"Google", "Microsoft", "Cancel"};
         while (true) {
             int choice = JOptionPane.showOptionDialog(
                     frame,
-                    promptPanel,
-                    "Google sign-in required",
+                    """
+                    Choose the provider you want to use for login.
+
+                    Drive/OAuth setup stays optional on the separate Google Drive and Microsoft Drive screens.
+                    """,
+                    "Sign-in required",
                     JOptionPane.DEFAULT_OPTION,
                     JOptionPane.INFORMATION_MESSAGE,
                     null,
@@ -266,28 +256,28 @@ public class DesktopApp {
             if (choice == JOptionPane.CLOSED_OPTION || choice == 2) {
                 return false;
             }
-            char[] passphrase = null;
+            boolean success = choice == 0
+                    ? promptForGoogleEmailLogin(frame, desktopView)
+                    : promptForMicrosoftEmailLogin(frame, desktopView);
+            if (success) {
+                return true;
+            }
+        }
+    }
+
+    private boolean promptForGoogleEmailLogin(JFrame frame, DesktopView desktopView) {
+        while (true) {
+            String email = promptForLoginEmail(frame, "Google sign-in", "Enter the Google email address you want to use for login.");
+            if (email == null) {
+                return false;
+            }
             try {
-                passphrase = readPassphrase(passphraseField);
-                DesktopGoogleOAuthService oauthService = new DesktopGoogleOAuthService(
-                        DesktopOAuthClientConfig.loadGoogle(clientIdField.getText()),
-                        googleCredentialStore
-                );
-                GoogleOAuthSession session = choice == 0
-                        ? oauthService.signIn(passphrase)
-                        : oauthService.restoreSession(passphrase)
-                        .orElseThrow(() -> new IllegalStateException("No saved Google session was found."));
-                GoogleAccount account = googleLoginManager.login(session.getIdentity());
+                GoogleAccount account = googleLoginManager.login(new GoogleIdentity(email, email, email));
                 updateActiveAccount(account, desktopView.storageStatusLabel(), desktopView.profileListModel(), desktopView.addProfileButton());
                 desktopView.cardLayout().show(desktopView.pagePanel(), LOCAL_STORAGE_CARD);
                 return true;
             } catch (RuntimeException ex) {
                 JOptionPane.showMessageDialog(frame, ex.getMessage(), "Google sign-in failed", JOptionPane.ERROR_MESSAGE);
-            } finally {
-                if (passphrase != null) {
-                    Arrays.fill(passphrase, '\0');
-                }
-                passphraseField.setText("");
             }
         }
     }
@@ -414,9 +404,7 @@ public class DesktopApp {
                         DesktopOAuthClientConfig.loadGoogle(clientIdField.getText()),
                         googleCredentialStore
                 ).signIn(passphrase);
-                GoogleAccount account = googleLoginManager.login(session.getIdentity());
-                connectionStatusLabel.setText("Connected as " + account.getDisplayName() + ".");
-                updateActiveAccount(account, storageStatusLabel, profileListModel, addProfileButton);
+                connectionStatusLabel.setText("Google Drive connected as " + describeIdentity(session.getIdentity().getDisplayName(), session.getIdentity().getEmail()) + ".");
             } catch (RuntimeException ex) {
                 JOptionPane.showMessageDialog(root, ex.getMessage(), "Google Drive connection failed", JOptionPane.ERROR_MESSAGE);
             } finally {
@@ -431,9 +419,7 @@ public class DesktopApp {
                         DesktopOAuthClientConfig.loadGoogle(clientIdField.getText()),
                         googleCredentialStore
                 ).restoreSession(passphrase).orElseThrow(() -> new IllegalStateException("No saved Google session was found."));
-                GoogleAccount account = googleLoginManager.login(session.getIdentity());
-                connectionStatusLabel.setText("Restored Google Drive connection for " + account.getDisplayName() + ".");
-                updateActiveAccount(account, storageStatusLabel, profileListModel, addProfileButton);
+                connectionStatusLabel.setText("Restored Google Drive connection for " + describeIdentity(session.getIdentity().getDisplayName(), session.getIdentity().getEmail()) + ".");
             } catch (RuntimeException ex) {
                 JOptionPane.showMessageDialog(root, ex.getMessage(), "Google Drive restore failed", JOptionPane.ERROR_MESSAGE);
             } finally {
@@ -445,9 +431,6 @@ public class DesktopApp {
             try {
                 googleCredentialStore.clear();
                 connectionStatusLabel.setText("Saved Google Drive session removed.");
-                if (currentAccount != null && "google".equals(currentAccount.getProvider())) {
-                    updateActiveAccount(localStorageAccountManager.useLocalStorage(), storageStatusLabel, profileListModel, addProfileButton);
-                }
             } catch (RuntimeException ex) {
                 JOptionPane.showMessageDialog(root, ex.getMessage(), "Google Drive disconnect failed", JOptionPane.ERROR_MESSAGE);
             }
@@ -494,9 +477,7 @@ public class DesktopApp {
                         DesktopOAuthClientConfig.loadMicrosoft(clientIdField.getText()),
                         microsoftCredentialStore
                 ).signIn(passphrase);
-                GoogleAccount account = microsoftLoginManager.login(session.getIdentity());
-                connectionStatusLabel.setText("Connected as " + account.getDisplayName() + ".");
-                updateActiveAccount(account, storageStatusLabel, profileListModel, addProfileButton);
+                connectionStatusLabel.setText("Microsoft Drive connected as " + describeIdentity(session.getIdentity().getDisplayName(), session.getIdentity().getEmail()) + ".");
             } catch (RuntimeException ex) {
                 JOptionPane.showMessageDialog(root, ex.getMessage(), "Microsoft Drive connection failed", JOptionPane.ERROR_MESSAGE);
             } finally {
@@ -511,9 +492,7 @@ public class DesktopApp {
                         DesktopOAuthClientConfig.loadMicrosoft(clientIdField.getText()),
                         microsoftCredentialStore
                 ).restoreSession(passphrase).orElseThrow(() -> new IllegalStateException("No saved Microsoft session was found."));
-                GoogleAccount account = microsoftLoginManager.login(session.getIdentity());
-                connectionStatusLabel.setText("Restored Microsoft Drive connection for " + account.getDisplayName() + ".");
-                updateActiveAccount(account, storageStatusLabel, profileListModel, addProfileButton);
+                connectionStatusLabel.setText("Restored Microsoft Drive connection for " + describeIdentity(session.getIdentity().getDisplayName(), session.getIdentity().getEmail()) + ".");
             } catch (RuntimeException ex) {
                 JOptionPane.showMessageDialog(root, ex.getMessage(), "Microsoft Drive restore failed", JOptionPane.ERROR_MESSAGE);
             } finally {
@@ -525,9 +504,6 @@ public class DesktopApp {
             try {
                 microsoftCredentialStore.clear();
                 connectionStatusLabel.setText("Saved Microsoft Drive session removed.");
-                if (currentAccount != null && "microsoft".equals(currentAccount.getProvider())) {
-                    updateActiveAccount(localStorageAccountManager.useLocalStorage(), storageStatusLabel, profileListModel, addProfileButton);
-                }
             } catch (RuntimeException ex) {
                 JOptionPane.showMessageDialog(root, ex.getMessage(), "Microsoft Drive disconnect failed", JOptionPane.ERROR_MESSAGE);
             }
@@ -659,6 +635,16 @@ public class DesktopApp {
 
     private String valueOrEmpty(String value) {
         return value == null ? "" : value;
+    }
+
+    private String describeIdentity(String displayName, String email) {
+        if (displayName != null && !displayName.isBlank() && email != null && !email.isBlank() && !displayName.equals(email)) {
+            return displayName + " (" + email + ")";
+        }
+        if (email != null && !email.isBlank()) {
+            return email;
+        }
+        return displayName == null || displayName.isBlank() ? "the selected account" : displayName;
     }
 
     private boolean requiresStartupLogin() {

@@ -4,10 +4,16 @@
     <string name="menu_local_storage">Local storage</string>
     <string name="menu_connect_google_drive">Connect Google Drive</string>
     <string name="menu_connect_microsoft_drive">Connect Microsoft Drive</string>
+    <string name="startup_login_dialog_title">Choose a sign-in provider</string>
+    <string name="startup_login_dialog_message">Login is separate from optional Drive/OAuth setup. Choose Google or Microsoft to create the active login for this app.</string>
+    <string name="google_login_dialog_title">Google sign-in</string>
+    <string name="google_login_dialog_message">Enter the Google email address you want to use for login.</string>
     <string name="microsoft_login_dialog_title">Microsoft sign-in</string>
     <string name="microsoft_login_dialog_message">Enter the Microsoft email address you want to use for login.</string>
     <string name="hint_login_email">name@example.com</string>
     <string name="button_sign_in">Sign in</string>
+    <string name="button_login_google">Google</string>
+    <string name="button_login_microsoft">Microsoft</string>
     <string name="error_login_email_required">Enter a valid email address.</string>
 
     <string name="local_storage_default_status">Using local storage by default on this device.</string>
@@ -36,22 +42,23 @@
     <string name="error_profile_type_required">Profile type is required.</string>
 
     <string name="google_drive_title">Connect Google Drive</string>
-    <string name="google_drive_setup_steps">1. Paste the Google server client id your backend expects for ID token verification.\n2. Paste the HTTPS backend endpoint that verifies the Google ID token.\n3. Save the setup.\n4. Tap Sign in with Google and choose the account you want to use on this device.\n5. The app requests an ID token and POSTs it to your backend before activating the signed-in account locally.</string>
+    <string name="google_drive_setup_steps">1. This screen is optional and separate from first-launch login.\n2. Paste the Google server client id your backend expects for ID token verification.\n3. Paste the HTTPS backend endpoint that verifies the Google ID token.\n4. Save the setup.\n5. Tap Sign in with Google to connect Google Drive with backend ID token verification.</string>
     <string name="label_google_server_client_id">Google server client id</string>
     <string name="hint_google_server_client_id">your-web-client-id.apps.googleusercontent.com</string>
     <string name="label_google_backend_url">Backend verification URL</string>
     <string name="hint_google_backend_url">https://example.com/api/google/verify</string>
     <string name="google_drive_setup_default_status">Google verification is configured. Sign in to request an ID token for backend verification.</string>
+    <string name="google_drive_setup_optional_status">Google Drive/OAuth is optional. Save a server client id and HTTPS backend verification URL here if you want to connect it.</string>
     <string name="google_drive_setup_required_status">Save the Google server client id and HTTPS backend verification URL before signing in.</string>
     <string name="google_drive_setup_saved">Google verification setup saved.</string>
     <string name="button_sign_in_google">Sign in with Google</string>
     <string name="button_sign_out_google">Sign out</string>
     <string name="button_save_google_setup">Save Google setup</string>
     <string name="button_clear_google_setup">Clear Google setup</string>
-    <string name="google_drive_connected_as">Connected as %1$s.</string>
-    <string name="google_drive_available_as">Google login available for %1$s.</string>
+    <string name="google_drive_connected_as">Google Drive connected as %1$s.</string>
+    <string name="google_drive_available_as">Google Drive login available for %1$s.</string>
     <string name="google_drive_verifying_status">Verifying the Google ID token with the backend…</string>
-    <string name="google_drive_signed_out">Signed out of Google on this device.</string>
+    <string name="google_drive_signed_out">Signed out of optional Google Drive on this device.</string>
     <string name="error_google_sign_in_failed">Google sign-in failed.</string>
     <string name="error_google_server_client_id_required">Google server client id is required.</string>
     <string name="error_google_backend_url_required">Google backend verification URL is required.</string>
@@ -63,7 +70,7 @@
     <string name="error_google_backend_verification_failed_with_body">Google backend verification failed with status %1$d: %2$s</string>
 
     <string name="microsoft_drive_title">Connect Microsoft Drive</string>
-    <string name="microsoft_drive_setup_steps">1. Create a public client/app registration in Microsoft Entra ID or Azure.\n2. Paste the application client id below.\n3. Choose a credential passphrase for the encrypted local session.\n4. Keep local storage as the default mode until the mobile browser callback is completed.\n5. The desktop app already uses the same Microsoft Drive scopes for browser sign-in.</string>
+    <string name="microsoft_drive_setup_steps">1. This screen is optional and separate from first-launch login.\n2. Create a public client/app registration in Microsoft Entra ID or Azure.\n3. Paste the application client id below.\n4. Choose a credential passphrase for the encrypted local session.\n5. Keep local storage as the default mode until the mobile browser callback is completed.</string>
     <string name="label_microsoft_client_id">Microsoft OAuth client id</string>
     <string name="hint_microsoft_client_id">your-microsoft-client-id</string>
     <string name="label_microsoft_passphrase">Credential passphrase</string>

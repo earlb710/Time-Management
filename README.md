@@ -53,7 +53,7 @@ The desktop flow requests these scopes:
 - `profile`
 - `https://www.googleapis.com/auth/drive.file`
 
-The Android **Connect Google Drive** menu page now lets you save a Google server client id plus an HTTPS backend verification URL. When you tap **Sign in with Google**, the Android app requests a Google ID token, POSTs it to the configured backend endpoint, and only activates the signed-in account locally after the backend accepts the token.
+The Android **Connect Google Drive** menu page is optional and separate from first-launch login. It lets you save a Google server client id plus an HTTPS backend verification URL. When you tap **Sign in with Google**, the Android app requests a Google ID token and POSTs it to the configured backend endpoint for optional Drive setup without replacing the active login.
 
 ## Microsoft OAuth desktop setup
 
@@ -116,7 +116,7 @@ For the Android run task, connect a device or start an emulator first. The task 
 1. Start in **Local storage** automatically
 2. Add profiles (name + type) associated with the default local-storage account
 3. Use the app menu to open the Google Drive or Microsoft Drive setup pages
-4. Save the Google server client id plus HTTPS backend verification URL before using Google sign-in on Android
+4. Optionally save the Google server client id plus HTTPS backend verification URL if you want to connect Google Drive on Android
 5. See all profiles for the active storage account in a scrollable list
 
 Data is persisted in the app's internal files directory at `/data/data/com.timemanagement.android/files/data/` (visible in Device File Explorer).
