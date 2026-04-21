@@ -257,7 +257,7 @@ public class DesktopApp {
                 return false;
             }
             boolean success = choice == 0
-                    ? promptForGoogleEmailLogin(frame, desktopView)
+                    ? promptForGoogleWebLogin(frame, desktopView)
                     : promptForMicrosoftEmailLogin(frame, desktopView);
             if (success) {
                 return true;
@@ -265,20 +265,19 @@ public class DesktopApp {
         }
     }
 
-    private boolean promptForGoogleEmailLogin(JFrame frame, DesktopView desktopView) {
-        while (true) {
-            String email = promptForLoginEmail(frame, "Google sign-in", "Enter the Google email address you want to use for login.");
-            if (email == null) {
-                return false;
-            }
-            try {
-                GoogleAccount account = googleLoginManager.login(new GoogleIdentity(email, email, email));
-                updateActiveAccount(account, desktopView.storageStatusLabel(), desktopView.profileListModel(), desktopView.addProfileButton());
-                desktopView.cardLayout().show(desktopView.pagePanel(), LOCAL_STORAGE_CARD);
-                return true;
-            } catch (RuntimeException ex) {
-                JOptionPane.showMessageDialog(frame, ex.getMessage(), "Google sign-in failed", JOptionPane.ERROR_MESSAGE);
-            }
+    private boolean promptForGoogleWebLogin(JFrame frame, DesktopView desktopView) {
+        try {
+            GoogleIdentity identity = new DesktopGoogleOAuthService(
+                    DesktopOAuthClientConfig.loadGoogleLogin(null),
+                    googleCredentialStore
+            ).signInForLogin();
+            GoogleAccount account = googleLoginManager.login(identity);
+            updateActiveAccount(account, desktopView.storageStatusLabel(), desktopView.profileListModel(), desktopView.addProfileButton());
+            desktopView.cardLayout().show(desktopView.pagePanel(), LOCAL_STORAGE_CARD);
+            return true;
+        } catch (RuntimeException ex) {
+            JOptionPane.showMessageDialog(frame, ex.getMessage(), "Google sign-in failed", JOptionPane.ERROR_MESSAGE);
+            return false;
         }
     }
 

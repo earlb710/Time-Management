@@ -22,4 +22,12 @@ class DesktopOAuthClientConfigTest {
 
         assertEquals("desktop-client-id", config.getClientId());
     }
+
+    @Test
+    void usesLoginScopesForGoogleWebLogin() {
+        DesktopOAuthClientConfig config = DesktopOAuthClientConfig.loadGoogleLogin("web-client-id");
+
+        assertEquals("web-client-id", config.getClientId());
+        assertEquals(DesktopOAuthClientConfig.googleLoginScopes(), config.getScopes());
+    }
 }

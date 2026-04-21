@@ -43,6 +43,7 @@ public class DesktopGoogleOAuthService {
     private final ObjectMapper mapper;
     private final SecureRandom secureRandom;
     private final Clock clock;
+    private final GoogleIdTokenParser idTokenParser;
 
     public DesktopGoogleOAuthService(DesktopOAuthClientConfig config, DesktopOAuthCredentialStore<GoogleOAuthSession> credentialStore) {
         this(config, credentialStore, HttpClient.newHttpClient(), new ObjectMapper(), new SecureRandom(), Clock.systemUTC());
@@ -60,13 +61,18 @@ public class DesktopGoogleOAuthService {
         this.mapper = mapper;
         this.secureRandom = secureRandom;
         this.clock = clock;
+        this.idTokenParser = new GoogleIdTokenParser(mapper, clock);
     }
 
     public GoogleOAuthSession signIn(char[] passphrase) {
-        OAuthCallback callback = awaitAuthorizationCode();
-        GoogleOAuthSession session = exchangeAuthorizationCode(callback);
+        OAuthCallback callback = awaitAuthorizationCode(true);
+        GoogleOAuthSession session = exchangeAuthorizationCode(callback, true);
         credentialStore.save(session, passphrase);
         return session;
+    }
+
+    public GoogleIdentity signInForLogin() {
+        return exchangeAuthorizationCode(awaitAuthorizationCode(false), false).getIdentity();
     }
 
     public Optional<GoogleOAuthSession> restoreSession(char[] passphrase) {
@@ -86,7 +92,7 @@ public class DesktopGoogleOAuthService {
         credentialStore.clear();
     }
 
-    private OAuthCallback awaitAuthorizationCode() {
+    private OAuthCallback awaitAuthorizationCode(boolean requestOfflineAccess) {
         String codeVerifier = generateCodeVerifier();
         String codeChallenge = codeChallengeForVerifier(codeVerifier);
         CompletableFuture<Map<String, String>> paramsFuture = new CompletableFuture<>();
@@ -103,7 +109,7 @@ public class DesktopGoogleOAuthService {
         server.start();
 
         try {
-            openBrowser(buildAuthorizationUri(redirectUri, codeChallenge));
+            openBrowser(buildAuthorizationUri(redirectUri, codeChallenge, requestOfflineAccess));
             Map<String, String> params = paramsFuture.get(5, TimeUnit.MINUTES);
             if (params.containsKey("error")) {
                 throw new IllegalStateException("Google sign-in was not approved: " + params.get("error"));
@@ -138,21 +144,23 @@ public class DesktopGoogleOAuthService {
         paramsFuture.complete(params);
     }
 
-    private URI buildAuthorizationUri(String redirectUri, String codeChallenge) {
+    private URI buildAuthorizationUri(String redirectUri, String codeChallenge, boolean requestOfflineAccess) {
         Map<String, String> params = new LinkedHashMap<>();
         params.put("client_id", config.getClientId());
         params.put("redirect_uri", redirectUri);
         params.put("response_type", "code");
         params.put("scope", String.join(" ", config.getScopes()));
-        params.put("access_type", "offline");
-        params.put("include_granted_scopes", "true");
-        params.put("prompt", "consent");
+        if (requestOfflineAccess) {
+            params.put("access_type", "offline");
+            params.put("include_granted_scopes", "true");
+            params.put("prompt", "consent");
+        }
         params.put("code_challenge", codeChallenge);
         params.put("code_challenge_method", "S256");
         return URI.create("https://accounts.google.com/o/oauth2/v2/auth?" + toFormBody(params));
     }
 
-    private GoogleOAuthSession exchangeAuthorizationCode(OAuthCallback callback) {
+    private GoogleOAuthSession exchangeAuthorizationCode(OAuthCallback callback, boolean requireRefreshToken) {
         Map<String, String> params = new LinkedHashMap<>();
         params.put("code", callback.code());
         params.put("client_id", config.getClientId());
@@ -162,9 +170,14 @@ public class DesktopGoogleOAuthService {
         JsonNode tokenResponse = postForm("https://oauth2.googleapis.com/token", params, "Could not exchange the Google authorization code.");
 
         String accessToken = requiredField(tokenResponse, "access_token", "Google sign-in did not return an access token.");
-        String refreshToken = requiredField(tokenResponse, "refresh_token", "Google sign-in did not return a refresh token.");
+        String refreshToken = requireRefreshToken
+                ? requiredField(tokenResponse, "refresh_token", "Google sign-in did not return a refresh token.")
+                : optionalField(tokenResponse, "refresh_token");
         Instant expiresAt = clock.instant().plusSeconds(tokenResponse.path("expires_in").asLong(3600));
-        GoogleIdentity identity = fetchIdentity(accessToken);
+        GoogleIdentity identity = idTokenParser.parse(
+                requiredField(tokenResponse, "id_token", "Google sign-in did not return an ID token."),
+                config.getClientId()
+        );
         return new GoogleOAuthSession(identity, accessToken, refreshToken, expiresAt, new ArrayList<>(config.getScopes()));
     }
 
@@ -189,30 +202,6 @@ public class DesktopGoogleOAuthService {
         return new GoogleOAuthSession(session.getIdentity(), accessToken, refreshToken, expiresAt, scopes);
     }
 
-    private GoogleIdentity fetchIdentity(String accessToken) {
-        HttpRequest request = HttpRequest.newBuilder(URI.create("https://openidconnect.googleapis.com/v1/userinfo"))
-                .header("Authorization", "Bearer " + accessToken)
-                .GET()
-                .build();
-        try {
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-            if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                throw new IllegalStateException("Could not retrieve the Google account profile (" + response.statusCode() + ").");
-            }
-            JsonNode userInfo = mapper.readTree(response.body());
-            return new GoogleIdentity(
-                    requiredField(userInfo, "sub", "Google account profile did not include a subject id."),
-                    requiredField(userInfo, "email", "Google account profile did not include an email address."),
-                    requiredField(userInfo, "name", "Google account profile did not include a display name.")
-            );
-        } catch (IOException | InterruptedException e) {
-            if (e instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
-            }
-            throw new IllegalStateException("Could not retrieve the Google account profile.", e);
-        }
-    }
-
     private JsonNode postForm(String url, Map<String, String> params, String errorMessage) {
         HttpRequest request = HttpRequest.newBuilder(URI.create(url))
                 .header("Content-Type", "application/x-www-form-urlencoded")
@@ -235,6 +224,13 @@ public class DesktopGoogleOAuthService {
     private String requiredField(JsonNode node, String name, String errorMessage) {
         if (!node.hasNonNull(name) || node.get(name).asText().isBlank()) {
             throw new IllegalStateException(errorMessage);
+        }
+        return node.get(name).asText();
+    }
+
+    private String optionalField(JsonNode node, String name) {
+        if (!node.hasNonNull(name) || node.get(name).asText().isBlank()) {
+            return null;
         }
         return node.get(name).asText();
     }

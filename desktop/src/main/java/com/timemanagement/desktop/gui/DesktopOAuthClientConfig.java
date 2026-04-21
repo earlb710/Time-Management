@@ -3,6 +3,11 @@ package com.timemanagement.desktop.gui;
 import java.util.List;
 
 public class DesktopOAuthClientConfig {
+    private static final List<String> GOOGLE_LOGIN_SCOPES = List.of(
+            "openid",
+            "email",
+            "profile"
+    );
     private static final List<String> GOOGLE_DEFAULT_SCOPES = List.of(
             "openid",
             "email",
@@ -44,6 +49,20 @@ public class DesktopOAuthClientConfig {
         );
     }
 
+    public static DesktopOAuthClientConfig loadGoogleLogin(String preferredClientId) {
+        return new DesktopOAuthClientConfig(
+                requireValue(
+                        firstPresent(
+                                preferredClientId,
+                                System.getProperty("time.management.googleClientId"),
+                                System.getenv("TIME_MANAGEMENT_GOOGLE_CLIENT_ID")
+                        ),
+                        "A Google web client id is required. Set TIME_MANAGEMENT_GOOGLE_CLIENT_ID to enable Google sign-in."
+                ),
+                GOOGLE_LOGIN_SCOPES
+        );
+    }
+
     public static DesktopOAuthClientConfig loadMicrosoftFromEnvironment() {
         return loadMicrosoft(null);
     }
@@ -78,6 +97,10 @@ public class DesktopOAuthClientConfig {
 
     public static List<String> googleDefaultScopes() {
         return GOOGLE_DEFAULT_SCOPES;
+    }
+
+    public static List<String> googleLoginScopes() {
+        return GOOGLE_LOGIN_SCOPES;
     }
 
     public static List<String> microsoftDefaultScopes() {

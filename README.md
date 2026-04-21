@@ -32,7 +32,7 @@ Both apps now start in a local-storage mode automatically:
 
 Cloud connections are optional and live behind each app's storage menu.
 
-On the very first launch, both apps ask whether you want to sign in with **Google** or **Microsoft**. This startup step is login only; Drive OAuth remains optional and stays on the separate Drive connection pages.
+On the very first launch, both apps ask whether you want to sign in with **Google** or **Microsoft**. On desktop, choosing Google now opens the browser-based Google login flow and uses the returned Google ID token to create the active login. This startup step is login only; Drive OAuth remains optional and stays on the separate Drive connection pages.
 
 ## Google OAuth desktop setup
 
@@ -41,6 +41,8 @@ The desktop **Connect Google Drive** page now walks through the setup process an
 ```bash
 export TIME_MANAGEMENT_GOOGLE_CLIENT_ID=your-desktop-client-id.apps.googleusercontent.com
 ```
+
+That same Google web client id is also used by the desktop first-launch Google login flow.
 
 The desktop UI asks for a credential passphrase on the Google Drive page. That passphrase encrypts the saved OAuth session at:
 
