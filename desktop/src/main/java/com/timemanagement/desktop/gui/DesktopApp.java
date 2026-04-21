@@ -231,24 +231,63 @@ public class DesktopApp {
         if (!requiresStartupLogin()) {
             return;
         }
-        if (!promptForGoogleEmailLogin(frame, desktopView)) {
+        if (!promptForVerifiedGoogleLogin(frame, desktopView)) {
             frame.dispose();
         }
     }
 
-    private boolean promptForGoogleEmailLogin(JFrame frame, DesktopView desktopView) {
+    private boolean promptForVerifiedGoogleLogin(JFrame frame, DesktopView desktopView) {
+        JTextField clientIdField = new JTextField(valueOrEmpty(DesktopOAuthClientConfig.defaultGoogleClientId()));
+        JPasswordField passphraseField = new JPasswordField();
+        JPanel promptPanel = new JPanel(new GridLayout(0, 1, 0, 8));
+        promptPanel.add(new JLabel("""
+                <html>
+                <p>Google login is required before you can use the app.</p>
+                <p>Sign in with Google to verify the active user, or restore a previously saved verified Google session.</p>
+                </html>
+                """));
+        promptPanel.add(new JLabel("Google OAuth client id:"));
+        promptPanel.add(clientIdField);
+        promptPanel.add(new JLabel("Credential passphrase:"));
+        promptPanel.add(passphraseField);
+
+        Object[] options = {"Sign in with Google", "Use Saved Session", "Cancel"};
         while (true) {
-            String email = promptForLoginEmail(frame, "Google sign-in", "Enter the Google email address you want to use for login.");
-            if (email == null) {
+            int choice = JOptionPane.showOptionDialog(
+                    frame,
+                    promptPanel,
+                    "Google sign-in required",
+                    JOptionPane.DEFAULT_OPTION,
+                    JOptionPane.INFORMATION_MESSAGE,
+                    null,
+                    options,
+                    options[0]
+            );
+            if (choice == JOptionPane.CLOSED_OPTION || choice == 2) {
                 return false;
             }
+            char[] passphrase = null;
             try {
-                GoogleAccount account = googleLoginManager.login(new GoogleIdentity(email, email, email));
+                passphrase = readPassphrase(passphraseField);
+                DesktopGoogleOAuthService oauthService = new DesktopGoogleOAuthService(
+                        DesktopOAuthClientConfig.loadGoogle(clientIdField.getText()),
+                        googleCredentialStore
+                );
+                GoogleOAuthSession session = choice == 0
+                        ? oauthService.signIn(passphrase)
+                        : oauthService.restoreSession(passphrase)
+                        .orElseThrow(() -> new IllegalStateException("No saved Google session was found."));
+                GoogleAccount account = googleLoginManager.login(session.getIdentity());
                 updateActiveAccount(account, desktopView.storageStatusLabel(), desktopView.profileListModel(), desktopView.addProfileButton());
                 desktopView.cardLayout().show(desktopView.pagePanel(), LOCAL_STORAGE_CARD);
                 return true;
             } catch (RuntimeException ex) {
                 JOptionPane.showMessageDialog(frame, ex.getMessage(), "Google sign-in failed", JOptionPane.ERROR_MESSAGE);
+            } finally {
+                if (passphrase != null) {
+                    Arrays.fill(passphrase, '\0');
+                }
+                passphraseField.setText("");
             }
         }
     }

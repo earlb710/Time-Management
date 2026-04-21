@@ -237,31 +237,7 @@ public class MainActivity extends AppCompatActivity {
         if (!requiresStartupLogin()) {
             return;
         }
-
-        promptForGoogleEmailLogin();
-    }
-
-    private void promptForGoogleEmailLogin() {
-        EditText emailField = new EditText(this);
-        emailField.setHint(R.string.hint_login_email);
-        emailField.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
-        new AlertDialog.Builder(this)
-                .setTitle(R.string.google_login_dialog_title)
-                .setMessage(R.string.google_login_dialog_message)
-                .setCancelable(false)
-                .setView(emailField)
-                .setPositiveButton(R.string.button_sign_in, (dialog, which) -> {
-                    String email = normalizeLoginEmail(emailField.getText().toString());
-                    if (email == null) {
-                        Toast.makeText(this, getString(R.string.error_login_email_required), Toast.LENGTH_LONG).show();
-                        maybePromptForRequiredGoogleLogin();
-                        return;
-                    }
-                    GoogleAccount account = googleLoginManager.login(new GoogleIdentity(email, email, email));
-                    updateActiveAccount(account);
-                    showSection(localStorageSection, getString(R.string.local_storage_default_status));
-                })
-                .show();
+        signInWithGoogle();
     }
 
     private void promptForMicrosoftEmailLogin() {
