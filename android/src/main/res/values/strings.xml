@@ -10,10 +10,11 @@
     <string name="button_login_google">Continue with Google</string>
     <string name="button_login_microsoft">Continue with Microsoft</string>
     <string name="error_login_email_required">Enter a valid email address.</string>
+    <string name="not_signed_in">Not signed in</string>
 
     <string name="local_storage_default_status">Using local storage by default on this device.</string>
     <string name="local_storage_title">Local Storage</string>
-    <string name="local_storage_body">Profiles are saved in the app&apos;s private files directory by default. Use the menu to open Google Drive or Microsoft Drive setup without leaving local storage.</string>
+    <string name="local_storage_body">Profiles are saved in the app&apos;s private files directory by default. Use the menu to open this separate storage screen for local, Google Drive, or Microsoft setup.</string>
     <string name="signed_in_as">Active storage account: %1$s</string>
     <string name="storage_screen_title">Storage options</string>
     <string name="label_data_directory">Data directory</string>

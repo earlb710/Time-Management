@@ -13,7 +13,7 @@ Minimal starter implementation matching the requested architecture:
 - Desktop storage menu with **Local Storage**, **Connect Google Drive**, and **Connect Microsoft Drive** pages
 - Android startup login screen plus separate **Profiles** and **Storage** screens
 - Desktop prompts for Google or Microsoft login on first launch before the normal storage pages
-- Android starts on a dedicated login screen, then uses the menu to switch between **Profiles** and **Storage**
+- Android defaults to the **Profiles** screen when a real signed-in account already exists, and falls back to the dedicated **Login** screen otherwise
 - Desktop Google OAuth 2.0 browser sign-in flow with access tokens, refresh tokens, and encrypted local session storage
 - Desktop Microsoft OAuth 2.0 browser sign-in flow with access tokens, refresh tokens, and encrypted local session storage
 - Shared Google identity/session models so platform-specific sign-in flows can hand real OAuth identities into shared core logic
@@ -117,7 +117,7 @@ Once sync succeeds, Android Studio exposes the checked-in Gradle run configurati
 
 For the Android run task, connect a device or start an emulator first. The task installs the debug build and launches `MainActivity` through `adb`. The app lets you:
 
-1. Start on a dedicated **Login** screen and create the active account with Google or Microsoft
+1. Open directly on the **Profiles** screen when an existing non-local account is available, otherwise start on the dedicated **Login** screen
 2. Use the **Profiles** screen to build a profile tree for the active account
 3. Add time entries beside the selected profile in the same profile screen
 4. Open the **Storage** screen from the app menu for local, Google Drive, and Microsoft setup

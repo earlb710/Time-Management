@@ -67,6 +67,7 @@ import javax.net.ssl.HttpsURLConnection;
 
 public class MainActivity extends AppCompatActivity {
     private static final String STORAGE_PREFS = "storage-setup";
+    private static final String ACTIVE_ACCOUNT_ID_KEY = "active-account-id";
     private static final String GOOGLE_SERVER_CLIENT_ID_KEY = "google-server-client-id";
     private static final String GOOGLE_BACKEND_URL_KEY = "google-backend-url";
     private static final String MICROSOFT_CLIENT_ID_KEY = "microsoft-client-id";
@@ -76,7 +77,7 @@ public class MainActivity extends AppCompatActivity {
     private MicrosoftLoginManager microsoftLoginManager;
     private ProfileManager profileManager;
     private TimeEntryManager timeEntryManager;
-    private LocalStorageAccountManager localStorageAccountManager;
+    private JsonDataStore dataStore;
     private GoogleSignInClient googleSignInClient;
     private ActivityResultLauncher<Intent> googleSignInLauncher;
     private SharedPreferences preferences;
@@ -124,12 +125,11 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         dataDirectory = getFilesDir().toPath().resolve("data");
-        JsonDataStore dataStore = new JsonDataStore(dataDirectory);
+        dataStore = new JsonDataStore(dataDirectory);
         googleLoginManager = new GoogleLoginManager(dataStore);
         microsoftLoginManager = new MicrosoftLoginManager(dataStore);
         profileManager = new ProfileManager(dataStore);
         timeEntryManager = new TimeEntryManager(dataStore);
-        localStorageAccountManager = new LocalStorageAccountManager(dataStore);
         preferences = getSharedPreferences(STORAGE_PREFS, MODE_PRIVATE);
 
         bindViews();
@@ -141,11 +141,13 @@ public class MainActivity extends AppCompatActivity {
         refreshGoogleSignInState();
         dataDirectoryLabel.setText(dataDirectory.toAbsolutePath().normalize().toString());
 
-        updateActiveAccount(localStorageAccountManager.useLocalStorage());
-        if (requiresStartupLogin()) {
-            showLoginScreen();
-        } else {
+        GoogleAccount savedAccount = loadSavedActiveAccount();
+        if (savedAccount != null) {
+            updateActiveAccount(savedAccount);
             showProfileScreen();
+        } else {
+            updateActiveAccount(null);
+            showLoginScreen();
         }
     }
 
@@ -588,6 +590,12 @@ public class MainActivity extends AppCompatActivity {
 
     private void updateActiveAccount(GoogleAccount account) {
         currentAccount = account;
+        if (account == null) {
+            preferences.edit().remove(ACTIVE_ACCOUNT_ID_KEY).apply();
+            accountLabel.setText(getString(R.string.not_signed_in));
+            return;
+        }
+        preferences.edit().putString(ACTIVE_ACCOUNT_ID_KEY, account.getAccountId()).apply();
         accountLabel.setText(getString(R.string.signed_in_as, describeAccount(account)));
     }
 
@@ -601,6 +609,23 @@ public class MainActivity extends AppCompatActivity {
         }
         String provider = account.getProvider();
         return provider == null || provider.isBlank() || LocalStorageAccountManager.PROVIDER.equalsIgnoreCase(provider);
+    }
+
+    private GoogleAccount loadSavedActiveAccount() {
+        String savedAccountId = preferences.getString(ACTIVE_ACCOUNT_ID_KEY, "");
+        if (savedAccountId != null && !savedAccountId.isBlank()) {
+            GoogleAccount savedAccount = dataStore.loadAccounts().get(savedAccountId);
+            if (!isLoginRequired(savedAccount)) {
+                return savedAccount;
+            }
+        }
+
+        for (GoogleAccount account : dataStore.loadAccounts().values()) {
+            if (!isLoginRequired(account)) {
+                return account;
+            }
+        }
+        return null;
     }
 
     private String describeAccount(GoogleAccount account) {
