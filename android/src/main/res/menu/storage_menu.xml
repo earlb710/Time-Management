@@ -1,12 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
     <item
-        android:id="@+id/menuLocalStorage"
-        android:title="@string/menu_local_storage" />
+        android:id="@+id/menuProfiles"
+        android:title="@string/menu_profiles" />
     <item
-        android:id="@+id/menuConnectGoogleDrive"
-        android:title="@string/menu_connect_google_drive" />
-    <item
-        android:id="@+id/menuConnectMicrosoftDrive"
-        android:title="@string/menu_connect_microsoft_drive" />
+        android:id="@+id/menuStorage"
+        android:title="@string/menu_storage" />
 </menu>

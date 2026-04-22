@@ -1,30 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Time Management</string>
-    <string name="menu_local_storage">Local storage</string>
-    <string name="menu_connect_google_drive">Connect Google Drive</string>
-    <string name="menu_connect_microsoft_drive">Connect Microsoft Drive</string>
-    <string name="startup_login_dialog_title">Choose a sign-in provider</string>
-    <string name="startup_login_dialog_message">Login is separate from optional Drive/OAuth setup. Choose Google or Microsoft to create the active login for this app.</string>
-    <string name="google_login_dialog_title">Google sign-in</string>
-    <string name="google_login_dialog_message">Enter the Google email address you want to use for login.</string>
-    <string name="microsoft_login_dialog_title">Microsoft sign-in</string>
-    <string name="microsoft_login_dialog_message">Enter the Microsoft email address you want to use for login.</string>
+    <string name="menu_profiles">Profiles</string>
+    <string name="menu_storage">Storage</string>
+    <string name="login_screen_title">Login</string>
+    <string name="login_screen_body">This startup screen creates the active login for the app. Enter an email address, then choose Google or Microsoft.</string>
+    <string name="label_login_email">Login email</string>
     <string name="hint_login_email">name@example.com</string>
-    <string name="button_sign_in">Sign in</string>
-    <string name="button_login_google">Google</string>
-    <string name="button_login_microsoft">Microsoft</string>
+    <string name="button_login_google">Continue with Google</string>
+    <string name="button_login_microsoft">Continue with Microsoft</string>
     <string name="error_login_email_required">Enter a valid email address.</string>
 
     <string name="local_storage_default_status">Using local storage by default on this device.</string>
     <string name="local_storage_title">Local Storage</string>
     <string name="local_storage_body">Profiles are saved in the app&apos;s private files directory by default. Use the menu to open Google Drive or Microsoft Drive setup without leaving local storage.</string>
-    <string name="not_signed_in">Active storage account: local-storage</string>
     <string name="signed_in_as">Active storage account: %1$s</string>
+    <string name="storage_screen_title">Storage options</string>
     <string name="label_data_directory">Data directory</string>
     <string name="local_storage_data_directory_placeholder">Loading data directory…</string>
     <string name="button_browse_folder">Select Folder</string>
-    <string name="local_profiles_note">Multiple profiles per storage account are supported.</string>
     <string name="select_folder_dialog_title">Local storage folder</string>
     <string name="select_folder_dialog_message">Path: %1$s\n\nContents:\n%2$s</string>
     <string name="select_folder_empty">(empty)</string>
@@ -32,14 +26,30 @@
     <string name="select_folder_item_file">%1$s</string>
     <string name="select_folder_failed">Could not use the selected data directory.</string>
 
-    <string name="label_profile_name">Profile Name</string>
+    <string name="profile_screen_title">Profiles</string>
+    <string name="label_profile_tree">Profile tree</string>
+    <string name="label_profile_name">Profile name</string>
     <string name="hint_profile_name">Enter profile name</string>
-    <string name="label_profile_type">Profile Type</string>
+    <string name="label_profile_type">Profile type</string>
     <string name="hint_profile_type">person or service</string>
-    <string name="button_add_profile">Add Profile</string>
-    <string name="label_profiles">Profiles</string>
+    <string name="button_add_profile">Add profile</string>
+    <string name="profile_tree_type">Type: %1$s</string>
+    <string name="profile_tree_created">Created: %1$s</string>
+    <string name="profile_empty_state">Create a profile to populate the tree.</string>
     <string name="error_profile_name_required">Profile name is required.</string>
     <string name="error_profile_type_required">Profile type is required.</string>
+    <string name="label_time_entries">Time entries</string>
+    <string name="time_entries_select_profile">Select a profile to see its time entries.</string>
+    <string name="selected_profile_label">Selected profile: %1$s</string>
+    <string name="hint_time_entry_description">Entry description</string>
+    <string name="hint_time_entry_duration">Duration in minutes</string>
+    <string name="button_add_time_entry">Add time entry</string>
+    <string name="time_entries_empty_state">No time entries yet for the selected profile.</string>
+    <string name="time_entry_item">%1$s • %2$d min • %3$s</string>
+    <string name="error_profile_selection_required">Select a profile first.</string>
+    <string name="error_time_entry_description_required">Time entry description is required.</string>
+    <string name="error_time_entry_duration_required">Enter a time entry duration in minutes.</string>
+    <string name="error_time_entry_duration_invalid">Time entry duration must be a whole number greater than zero.</string>
 
     <string name="google_drive_title">Connect Google Drive</string>
     <string name="google_drive_setup_steps">1. This screen is optional and separate from first-launch login.\n2. Paste the Google server client id your backend expects for ID token verification.\n3. Paste the HTTPS backend endpoint that verifies the Google ID token.\n4. Save the setup.\n5. Tap Sign in with Google to connect Google Drive with backend ID token verification.</string>

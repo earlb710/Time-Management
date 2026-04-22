@@ -3,37 +3,42 @@ package com.timemanagement.android;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
-import android.text.InputType;
 import android.util.Patterns;
+import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
+import android.widget.BaseExpandableListAdapter;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ExpandableListView;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.appcompat.app.AlertDialog;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.app.AppCompatActivity;
 
-import com.timemanagement.core.data.JsonDataStore;
-import com.timemanagement.core.dataclass.GoogleAccount;
-import com.timemanagement.core.dataclass.GoogleIdentity;
-import com.timemanagement.core.dataclass.ManagedProfile;
-import com.timemanagement.core.dataclass.MicrosoftIdentity;
-import com.timemanagement.core.program.GoogleLoginManager;
-import com.timemanagement.core.program.LocalStorageAccountManager;
-import com.timemanagement.core.program.MicrosoftLoginManager;
-import com.timemanagement.core.program.ProfileManager;
 import com.google.android.gms.auth.api.signin.GoogleSignIn;
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
 import com.google.android.gms.auth.api.signin.GoogleSignInClient;
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
 import com.google.android.gms.common.api.ApiException;
+import com.timemanagement.core.data.JsonDataStore;
+import com.timemanagement.core.dataclass.GoogleAccount;
+import com.timemanagement.core.dataclass.GoogleIdentity;
+import com.timemanagement.core.dataclass.ManagedProfile;
+import com.timemanagement.core.dataclass.MicrosoftIdentity;
+import com.timemanagement.core.dataclass.TimeEntry;
+import com.timemanagement.core.program.GoogleLoginManager;
+import com.timemanagement.core.program.LocalStorageAccountManager;
+import com.timemanagement.core.program.MicrosoftLoginManager;
+import com.timemanagement.core.program.ProfileManager;
+import com.timemanagement.core.program.TimeEntryManager;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -46,8 +51,11 @@ import java.io.OutputStream;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Comparator;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ExecutorService;
@@ -59,14 +67,15 @@ import javax.net.ssl.HttpsURLConnection;
 
 public class MainActivity extends AppCompatActivity {
     private static final String STORAGE_PREFS = "storage-setup";
-    private static final String INITIAL_LOGIN_PROMPT_COMPLETED_KEY = "initial-login-prompt-completed";
     private static final String GOOGLE_SERVER_CLIENT_ID_KEY = "google-server-client-id";
     private static final String GOOGLE_BACKEND_URL_KEY = "google-backend-url";
     private static final String MICROSOFT_CLIENT_ID_KEY = "microsoft-client-id";
+    private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("MMM d, yyyy HH:mm");
 
     private GoogleLoginManager googleLoginManager;
     private MicrosoftLoginManager microsoftLoginManager;
     private ProfileManager profileManager;
+    private TimeEntryManager timeEntryManager;
     private LocalStorageAccountManager localStorageAccountManager;
     private GoogleSignInClient googleSignInClient;
     private ActivityResultLauncher<Intent> googleSignInLauncher;
@@ -74,13 +83,24 @@ public class MainActivity extends AppCompatActivity {
     private final ExecutorService networkExecutor = Executors.newSingleThreadExecutor();
     private Path dataDirectory;
     private GoogleAccount currentAccount;
+    private ManagedProfile selectedProfile;
 
-    private TextView storageStatusLabel;
+    private View loginScreen;
+    private View profileScreen;
+    private View storageScreen;
     private TextView accountLabel;
-    private EditText dataDirectoryLabel;
+    private TextView storageStatusLabel;
+    private EditText loginEmailField;
     private EditText profileNameField;
     private EditText profileTypeField;
-    private ListView profileListView;
+    private ExpandableListView profileTreeView;
+    private EditText timeEntryDescriptionField;
+    private EditText timeEntryDurationField;
+    private TextView selectedProfileLabel;
+    private ListView timeEntryListView;
+    private TextView profileEmptyLabel;
+    private TextView timeEntryEmptyLabel;
+    private EditText dataDirectoryLabel;
     private TextView googleSetupStatus;
     private EditText googleServerClientIdField;
     private EditText googleBackendUrlField;
@@ -89,11 +109,10 @@ public class MainActivity extends AppCompatActivity {
     private EditText microsoftPassphraseField;
     private Button signInGoogleButton;
     private Button signOutGoogleButton;
-    private View localStorageSection;
-    private View googleDriveSection;
-    private View microsoftDriveSection;
-    private ArrayAdapter<String> profileAdapter;
-    private final List<String> profileItems = new ArrayList<>();
+    private ArrayAdapter<String> timeEntryAdapter;
+    private final List<String> timeEntryItems = new ArrayList<>();
+    private ProfileTreeAdapter profileTreeAdapter;
+    private Screen activeScreen = Screen.LOGIN;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -109,48 +128,25 @@ public class MainActivity extends AppCompatActivity {
         googleLoginManager = new GoogleLoginManager(dataStore);
         microsoftLoginManager = new MicrosoftLoginManager(dataStore);
         profileManager = new ProfileManager(dataStore);
+        timeEntryManager = new TimeEntryManager(dataStore);
         localStorageAccountManager = new LocalStorageAccountManager(dataStore);
         preferences = getSharedPreferences(STORAGE_PREFS, MODE_PRIVATE);
 
-        storageStatusLabel = findViewById(R.id.storageStatusLabel);
-        accountLabel = findViewById(R.id.accountLabel);
-        dataDirectoryLabel = findViewById(R.id.dataDirectoryLabel);
-        profileNameField = findViewById(R.id.profileNameField);
-        profileTypeField = findViewById(R.id.profileTypeField);
-        profileListView = findViewById(R.id.profileListView);
-        googleSetupStatus = findViewById(R.id.googleSetupStatus);
-        googleServerClientIdField = findViewById(R.id.googleServerClientIdField);
-        googleBackendUrlField = findViewById(R.id.googleBackendUrlField);
-        microsoftSetupStatus = findViewById(R.id.microsoftSetupStatus);
-        microsoftClientIdField = findViewById(R.id.microsoftClientIdField);
-        microsoftPassphraseField = findViewById(R.id.microsoftPassphraseField);
-        signInGoogleButton = findViewById(R.id.signInWithGoogleButton);
-        signOutGoogleButton = findViewById(R.id.signOutGoogleButton);
-        localStorageSection = findViewById(R.id.localStorageSection);
-        googleDriveSection = findViewById(R.id.googleDriveSection);
-        microsoftDriveSection = findViewById(R.id.microsoftDriveSection);
+        bindViews();
+        configureLists();
+        bindActions();
 
-        profileAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, profileItems);
-        profileListView.setAdapter(profileAdapter);
-
-        updateActiveAccount(localStorageAccountManager.useLocalStorage());
         loadSavedSetup();
         rebuildGoogleSignInClient();
         refreshGoogleSignInState();
-
-        Button addProfileButton = findViewById(R.id.addProfileButton);
-        addProfileButton.setOnClickListener(v -> addProfile());
-        findViewById(R.id.browseDataDirectoryButton).setOnClickListener(v -> browseDataDirectory());
-        findViewById(R.id.saveGoogleSetupButton).setOnClickListener(v -> saveGoogleSetup());
-        findViewById(R.id.clearGoogleSetupButton).setOnClickListener(v -> clearGoogleSetup());
-        signInGoogleButton.setOnClickListener(v -> signInWithGoogle());
-        signOutGoogleButton.setOnClickListener(v -> signOutGoogle());
-        findViewById(R.id.saveMicrosoftSetupButton).setOnClickListener(v -> saveMicrosoftSetup());
-        findViewById(R.id.clearMicrosoftSetupButton).setOnClickListener(v -> clearMicrosoftSetup());
-
         dataDirectoryLabel.setText(dataDirectory.toAbsolutePath().normalize().toString());
-        showSection(localStorageSection, getString(R.string.local_storage_default_status));
-        maybePromptForRequiredLogin();
+
+        updateActiveAccount(localStorageAccountManager.useLocalStorage());
+        if (requiresStartupLogin()) {
+            showLoginScreen();
+        } else {
+            showProfileScreen();
+        }
     }
 
     @Override
@@ -166,29 +162,130 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
+    public boolean onPrepareOptionsMenu(Menu menu) {
+        boolean visible = activeScreen != Screen.LOGIN;
+        menu.findItem(R.id.menuProfiles).setVisible(visible);
+        menu.findItem(R.id.menuStorage).setVisible(visible);
+        return super.onPrepareOptionsMenu(menu);
+    }
+
+    @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         int itemId = item.getItemId();
-        if (itemId == R.id.menuLocalStorage) {
-            showSection(localStorageSection, getString(R.string.local_storage_default_status));
+        if (itemId == R.id.menuProfiles) {
+            showProfileScreen();
             return true;
         }
-        if (itemId == R.id.menuConnectGoogleDrive) {
-            refreshGoogleSignInState();
-            showSection(googleDriveSection, getString(R.string.google_drive_title));
-            return true;
-        }
-        if (itemId == R.id.menuConnectMicrosoftDrive) {
-            showSection(microsoftDriveSection, getString(R.string.microsoft_drive_title));
+        if (itemId == R.id.menuStorage) {
+            showStorageScreen();
             return true;
         }
         return super.onOptionsItemSelected(item);
     }
 
-    private void showSection(View visibleSection, String statusText) {
-        localStorageSection.setVisibility(visibleSection == localStorageSection ? View.VISIBLE : View.GONE);
-        googleDriveSection.setVisibility(visibleSection == googleDriveSection ? View.VISIBLE : View.GONE);
-        microsoftDriveSection.setVisibility(visibleSection == microsoftDriveSection ? View.VISIBLE : View.GONE);
-        storageStatusLabel.setText(statusText);
+    private void bindViews() {
+        loginScreen = findViewById(R.id.loginScreen);
+        profileScreen = findViewById(R.id.profileScreen);
+        storageScreen = findViewById(R.id.storageScreen);
+        accountLabel = findViewById(R.id.accountLabel);
+        storageStatusLabel = findViewById(R.id.storageStatusLabel);
+        loginEmailField = findViewById(R.id.loginEmailField);
+        profileNameField = findViewById(R.id.profileNameField);
+        profileTypeField = findViewById(R.id.profileTypeField);
+        profileTreeView = findViewById(R.id.profileTreeView);
+        profileEmptyLabel = findViewById(R.id.profileEmptyLabel);
+        timeEntryDescriptionField = findViewById(R.id.timeEntryDescriptionField);
+        timeEntryDurationField = findViewById(R.id.timeEntryDurationField);
+        selectedProfileLabel = findViewById(R.id.selectedProfileLabel);
+        timeEntryListView = findViewById(R.id.timeEntryListView);
+        timeEntryEmptyLabel = findViewById(R.id.timeEntryEmptyLabel);
+        dataDirectoryLabel = findViewById(R.id.dataDirectoryLabel);
+        googleSetupStatus = findViewById(R.id.googleSetupStatus);
+        googleServerClientIdField = findViewById(R.id.googleServerClientIdField);
+        googleBackendUrlField = findViewById(R.id.googleBackendUrlField);
+        microsoftSetupStatus = findViewById(R.id.microsoftSetupStatus);
+        microsoftClientIdField = findViewById(R.id.microsoftClientIdField);
+        microsoftPassphraseField = findViewById(R.id.microsoftPassphraseField);
+        signInGoogleButton = findViewById(R.id.signInWithGoogleButton);
+        signOutGoogleButton = findViewById(R.id.signOutGoogleButton);
+    }
+
+    private void configureLists() {
+        profileTreeAdapter = new ProfileTreeAdapter();
+        profileTreeView.setAdapter(profileTreeAdapter);
+        profileTreeView.setEmptyView(profileEmptyLabel);
+        profileTreeView.setOnGroupClickListener((parent, view, groupPosition, id) -> {
+            selectProfile(profileTreeAdapter.getProfile(groupPosition));
+            return false;
+        });
+        profileTreeView.setOnChildClickListener((parent, view, groupPosition, childPosition, id) -> {
+            selectProfile(profileTreeAdapter.getProfile(groupPosition));
+            return true;
+        });
+
+        timeEntryAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, timeEntryItems);
+        timeEntryListView.setAdapter(timeEntryAdapter);
+        timeEntryListView.setEmptyView(timeEntryEmptyLabel);
+    }
+
+    private void bindActions() {
+        findViewById(R.id.loginWithGoogleButton).setOnClickListener(v -> loginWithGoogle());
+        findViewById(R.id.loginWithMicrosoftButton).setOnClickListener(v -> loginWithMicrosoft());
+        findViewById(R.id.addProfileButton).setOnClickListener(v -> addProfile());
+        findViewById(R.id.addTimeEntryButton).setOnClickListener(v -> addTimeEntry());
+        findViewById(R.id.browseDataDirectoryButton).setOnClickListener(v -> browseDataDirectory());
+        findViewById(R.id.saveGoogleSetupButton).setOnClickListener(v -> saveGoogleSetup());
+        findViewById(R.id.clearGoogleSetupButton).setOnClickListener(v -> clearGoogleSetup());
+        signInGoogleButton.setOnClickListener(v -> signInWithGoogle());
+        signOutGoogleButton.setOnClickListener(v -> signOutGoogle());
+        findViewById(R.id.saveMicrosoftSetupButton).setOnClickListener(v -> saveMicrosoftSetup());
+        findViewById(R.id.clearMicrosoftSetupButton).setOnClickListener(v -> clearMicrosoftSetup());
+    }
+
+    private void showLoginScreen() {
+        switchScreen(Screen.LOGIN);
+    }
+
+    private void showProfileScreen() {
+        refreshProfileTree();
+        switchScreen(Screen.PROFILES);
+    }
+
+    private void showStorageScreen() {
+        storageStatusLabel.setText(getString(R.string.storage_screen_title));
+        refreshGoogleSignInState();
+        switchScreen(Screen.STORAGE);
+    }
+
+    private void switchScreen(Screen screen) {
+        activeScreen = screen;
+        loginScreen.setVisibility(screen == Screen.LOGIN ? View.VISIBLE : View.GONE);
+        profileScreen.setVisibility(screen == Screen.PROFILES ? View.VISIBLE : View.GONE);
+        storageScreen.setVisibility(screen == Screen.STORAGE ? View.VISIBLE : View.GONE);
+        invalidateOptionsMenu();
+    }
+
+    private void loginWithGoogle() {
+        String email = normalizeLoginEmail(loginEmailField.getText().toString());
+        if (email == null) {
+            Toast.makeText(this, getString(R.string.error_login_email_required), Toast.LENGTH_LONG).show();
+            return;
+        }
+        completeStartupLogin(googleLoginManager.login(new GoogleIdentity(email, email, email)));
+    }
+
+    private void loginWithMicrosoft() {
+        String email = normalizeLoginEmail(loginEmailField.getText().toString());
+        if (email == null) {
+            Toast.makeText(this, getString(R.string.error_login_email_required), Toast.LENGTH_LONG).show();
+            return;
+        }
+        completeStartupLogin(microsoftLoginManager.login(new MicrosoftIdentity(email, email, email)));
+    }
+
+    private String normalizeLoginEmail(String value) {
+        String email = value == null ? "" : value.trim().toLowerCase();
+        return Patterns.EMAIL_ADDRESS.matcher(email).matches() ? email : null;
     }
 
     private void addProfile() {
@@ -205,18 +302,55 @@ public class MainActivity extends AppCompatActivity {
         }
 
         try {
-            profileManager.createProfile(currentAccount.getAccountId(), name, type);
+            ManagedProfile profile = profileManager.createProfile(currentAccount.getAccountId(), name, type);
             profileNameField.setText("");
             profileTypeField.setText("");
-            refreshProfiles();
+            refreshProfileTree();
+            selectProfile(profile);
         } catch (Exception e) {
+            Toast.makeText(this, e.getMessage(), Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void addTimeEntry() {
+        if (selectedProfile == null) {
+            Toast.makeText(this, getString(R.string.error_profile_selection_required), Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        String description = timeEntryDescriptionField.getText().toString().trim();
+        if (description.isEmpty()) {
+            Toast.makeText(this, getString(R.string.error_time_entry_description_required), Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        String durationText = timeEntryDurationField.getText().toString().trim();
+        if (durationText.isEmpty()) {
+            Toast.makeText(this, getString(R.string.error_time_entry_duration_required), Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        final int durationMinutes;
+        try {
+            durationMinutes = Integer.parseInt(durationText);
+        } catch (NumberFormatException e) {
+            Toast.makeText(this, getString(R.string.error_time_entry_duration_invalid), Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        try {
+            timeEntryManager.createEntry(selectedProfile.getProfileId(), description, durationMinutes);
+            timeEntryDescriptionField.setText("");
+            timeEntryDurationField.setText("");
+            refreshTimeEntries();
+        } catch (IllegalArgumentException e) {
             Toast.makeText(this, e.getMessage(), Toast.LENGTH_LONG).show();
         }
     }
 
     private void signInWithGoogle() {
         if (!saveGoogleSetupInternal(true)) {
-            showSection(googleDriveSection, getString(R.string.google_drive_title));
+            showStorageScreen();
             return;
         }
         signInGoogleButton.setEnabled(false);
@@ -250,71 +384,6 @@ public class MainActivity extends AppCompatActivity {
             refreshGoogleSignInState();
             Toast.makeText(this, getString(R.string.google_drive_signed_out), Toast.LENGTH_SHORT).show();
         });
-    }
-
-    private void maybePromptForRequiredLogin() {
-        if (!requiresStartupLogin()) {
-            return;
-        }
-        new AlertDialog.Builder(this)
-                .setTitle(R.string.startup_login_dialog_title)
-                .setMessage(R.string.startup_login_dialog_message)
-                .setCancelable(false)
-                .setPositiveButton(R.string.button_login_google, (dialog, which) -> promptForGoogleEmailLogin())
-                .setNegativeButton(R.string.button_login_microsoft, (dialog, which) -> promptForMicrosoftEmailLogin())
-                .setNeutralButton(android.R.string.cancel, (dialog, which) -> finish())
-                .show();
-    }
-
-    private void promptForGoogleEmailLogin() {
-        EditText emailField = new EditText(this);
-        emailField.setHint(R.string.hint_login_email);
-        emailField.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
-        new AlertDialog.Builder(this)
-                .setTitle(R.string.google_login_dialog_title)
-                .setMessage(R.string.google_login_dialog_message)
-                .setView(emailField)
-                .setCancelable(false)
-                .setPositiveButton(R.string.button_sign_in, (dialog, which) -> {
-                    String email = normalizeLoginEmail(emailField.getText().toString());
-                    if (email == null) {
-                        Toast.makeText(this, getString(R.string.error_login_email_required), Toast.LENGTH_LONG).show();
-                        promptForGoogleEmailLogin();
-                        return;
-                    }
-                    GoogleAccount account = googleLoginManager.login(new GoogleIdentity(email, email, email));
-                    completeStartupLogin(account);
-                })
-                .setNegativeButton(android.R.string.cancel, (dialog, which) -> finish())
-                .show();
-    }
-
-    private void promptForMicrosoftEmailLogin() {
-        EditText emailField = new EditText(this);
-        emailField.setHint(R.string.hint_login_email);
-        emailField.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
-        new AlertDialog.Builder(this)
-                .setTitle(R.string.microsoft_login_dialog_title)
-                .setMessage(R.string.microsoft_login_dialog_message)
-                .setView(emailField)
-                .setCancelable(false)
-                .setPositiveButton(R.string.button_sign_in, (dialog, which) -> {
-                    String email = normalizeLoginEmail(emailField.getText().toString());
-                    if (email == null) {
-                        Toast.makeText(this, getString(R.string.error_login_email_required), Toast.LENGTH_LONG).show();
-                        promptForMicrosoftEmailLogin();
-                        return;
-                    }
-                    GoogleAccount account = microsoftLoginManager.login(new MicrosoftIdentity(email, email, email));
-                    completeStartupLogin(account);
-                })
-                .setNegativeButton(android.R.string.cancel, (dialog, which) -> finish())
-                .show();
-    }
-
-    private String normalizeLoginEmail(String value) {
-        String email = value == null ? "" : value.trim().toLowerCase();
-        return Patterns.EMAIL_ADDRESS.matcher(email).matches() ? email : null;
     }
 
     private void saveMicrosoftSetup() {
@@ -439,13 +508,58 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void refreshProfiles() {
-        profileItems.clear();
-        List<ManagedProfile> profiles = profileManager.listProfiles(currentAccount.getAccountId());
-        for (ManagedProfile profile : profiles) {
-            profileItems.add(profile.getProfileName() + " (" + profile.getProfileType() + ")");
+    private void refreshProfileTree() {
+        List<ManagedProfile> profiles = currentAccount == null
+                ? List.of()
+                : profileManager.listProfiles(currentAccount.getAccountId());
+        profileTreeAdapter.setProfiles(profiles);
+        expandAllProfileGroups();
+
+        if (profiles.isEmpty()) {
+            selectedProfile = null;
+        } else if (selectedProfile == null) {
+            selectedProfile = profiles.get(0);
+        } else {
+            selectedProfile = profiles.stream()
+                    .filter(profile -> Objects.equals(profile.getProfileId(), selectedProfile.getProfileId()))
+                    .findFirst()
+                    .orElse(profiles.get(0));
         }
-        profileAdapter.notifyDataSetChanged();
+        refreshTimeEntries();
+    }
+
+    private void expandAllProfileGroups() {
+        for (int index = 0; index < profileTreeAdapter.getGroupCount(); index++) {
+            profileTreeView.expandGroup(index);
+        }
+    }
+
+    private void selectProfile(ManagedProfile profile) {
+        selectedProfile = profile;
+        refreshTimeEntries();
+    }
+
+    private void refreshTimeEntries() {
+        timeEntryItems.clear();
+        if (selectedProfile == null) {
+            selectedProfileLabel.setText(getString(R.string.time_entries_select_profile));
+            timeEntryEmptyLabel.setText(getString(R.string.time_entries_select_profile));
+            timeEntryAdapter.notifyDataSetChanged();
+            return;
+        }
+
+        selectedProfileLabel.setText(getString(R.string.selected_profile_label, selectedProfile.getProfileName()));
+        timeEntryEmptyLabel.setText(getString(R.string.time_entries_empty_state));
+
+        for (TimeEntry entry : timeEntryManager.listEntries(selectedProfile.getProfileId())) {
+            timeEntryItems.add(getString(
+                    R.string.time_entry_item,
+                    formatInstant(entry.getStartedAt()),
+                    entry.getDurationMinutes(),
+                    entry.getDescription()
+            ));
+        }
+        timeEntryAdapter.notifyDataSetChanged();
     }
 
     private void refreshGoogleSignInState() {
@@ -467,17 +581,14 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void completeStartupLogin(GoogleAccount account) {
+        loginEmailField.setText("");
         updateActiveAccount(account);
-        showSection(localStorageSection, getString(R.string.local_storage_default_status));
+        showProfileScreen();
     }
 
     private void updateActiveAccount(GoogleAccount account) {
         currentAccount = account;
-        preferences.edit()
-                .putBoolean(INITIAL_LOGIN_PROMPT_COMPLETED_KEY, !isLoginRequired(account))
-                .apply();
         accountLabel.setText(getString(R.string.signed_in_as, describeAccount(account)));
-        refreshProfiles();
     }
 
     private boolean requiresStartupLogin() {
@@ -654,6 +765,101 @@ public class MainActivity extends AppCompatActivity {
             return body.toString().trim();
         } catch (IOException e) {
             return "";
+        }
+    }
+
+    private String formatInstant(Instant instant) {
+        return DATE_TIME_FORMATTER.withZone(ZoneId.systemDefault()).format(instant);
+    }
+
+    private enum Screen {
+        LOGIN,
+        PROFILES,
+        STORAGE
+    }
+
+    private final class ProfileTreeAdapter extends BaseExpandableListAdapter {
+        private final List<ManagedProfile> profiles = new ArrayList<>();
+
+        private void setProfiles(List<ManagedProfile> profiles) {
+            this.profiles.clear();
+            this.profiles.addAll(profiles);
+            notifyDataSetChanged();
+        }
+
+        private ManagedProfile getProfile(int groupPosition) {
+            return profiles.get(groupPosition);
+        }
+
+        @Override
+        public int getGroupCount() {
+            return profiles.size();
+        }
+
+        @Override
+        public int getChildrenCount(int groupPosition) {
+            return 1;
+        }
+
+        @Override
+        public Object getGroup(int groupPosition) {
+            return getProfile(groupPosition);
+        }
+
+        @Override
+        public Object getChild(int groupPosition, int childPosition) {
+            return getProfile(groupPosition);
+        }
+
+        @Override
+        public long getGroupId(int groupPosition) {
+            return groupPosition;
+        }
+
+        @Override
+        public long getChildId(int groupPosition, int childPosition) {
+            return childPosition;
+        }
+
+        @Override
+        public boolean hasStableIds() {
+            return false;
+        }
+
+        @Override
+        public View getGroupView(int groupPosition, boolean isExpanded, View convertView, ViewGroup parent) {
+            View view = convertView;
+            if (view == null) {
+                view = LayoutInflater.from(MainActivity.this)
+                        .inflate(android.R.layout.simple_expandable_list_item_1, parent, false);
+            }
+            ManagedProfile profile = getProfile(groupPosition);
+            ((TextView) view.findViewById(android.R.id.text1)).setText(profile.getProfileName());
+            return view;
+        }
+
+        @Override
+        public View getChildView(int groupPosition, int childPosition, boolean isLastChild, View convertView, ViewGroup parent) {
+            View view = convertView;
+            if (view == null) {
+                view = LayoutInflater.from(MainActivity.this)
+                        .inflate(android.R.layout.simple_list_item_2, parent, false);
+            }
+            ManagedProfile profile = getProfile(groupPosition);
+            ((TextView) view.findViewById(android.R.id.text1)).setText(getString(
+                    R.string.profile_tree_type,
+                    profile.getProfileType()
+            ));
+            ((TextView) view.findViewById(android.R.id.text2)).setText(getString(
+                    R.string.profile_tree_created,
+                    formatInstant(profile.getCreatedAt())
+            ));
+            return view;
+        }
+
+        @Override
+        public boolean isChildSelectable(int groupPosition, int childPosition) {
+            return true;
         }
     }
 

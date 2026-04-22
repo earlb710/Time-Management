@@ -2,7 +2,7 @@
 
 Minimal starter implementation matching the requested architecture:
 
-- `data/` → JSON files (`accounts.json`, `profiles.json`)
+- `data/` → JSON files (`accounts.json`, `profiles.json`, `time-entries.json`)
 - `core` module → shared **data classes** and **program classes** for desktop + android
 - `desktop` module → desktop **GUI classes** (Swing)
 - `android` module → real Android app with `MainActivity` that uses the shared core logic
@@ -11,13 +11,15 @@ Minimal starter implementation matching the requested architecture:
 
 - Desktop and Android both default to local storage for profiles/accounts
 - Desktop storage menu with **Local Storage**, **Connect Google Drive**, and **Connect Microsoft Drive** pages
-- Android storage menu with **Local Storage**, **Connect Google Drive**, and **Connect Microsoft Drive** pages
-- Desktop and Android prompt for Google or Microsoft login on first launch before the normal storage pages
+- Android startup login screen plus separate **Profiles** and **Storage** screens
+- Desktop prompts for Google or Microsoft login on first launch before the normal storage pages
+- Android starts on a dedicated login screen, then uses the menu to switch between **Profiles** and **Storage**
 - Desktop Google OAuth 2.0 browser sign-in flow with access tokens, refresh tokens, and encrypted local session storage
 - Desktop Microsoft OAuth 2.0 browser sign-in flow with access tokens, refresh tokens, and encrypted local session storage
 - Shared Google identity/session models so platform-specific sign-in flows can hand real OAuth identities into shared core logic
 - Shared Microsoft identity/session models so platform-specific sign-in flows can hand real OAuth identities into shared core logic
 - Multiple profiles per signed-in login
+- Multiple time entries per profile in the Android profile screen
 - Shared non-GUI logic across desktop and android modules
 
 ## Default local storage behavior
@@ -32,7 +34,7 @@ Both apps now start in a local-storage mode automatically:
 
 Cloud connections are optional and live behind each app's storage menu.
 
-On the very first launch, both apps ask whether you want to sign in with **Google** or **Microsoft**. On desktop, choosing Google now opens the browser-based Google login flow and uses the returned Google ID token to create the active login. This startup step is login only; Drive OAuth remains optional and stays on the separate Drive connection pages.
+On the very first launch, desktop asks whether you want to sign in with **Google** or **Microsoft**, while Android opens a dedicated **Login** screen for the same choice. On desktop, choosing Google now opens the browser-based Google login flow and uses the returned Google ID token to create the active login. This startup step is login only; Drive OAuth remains optional and stays on the separate Drive connection pages.
 
 ## Google OAuth desktop setup
 
@@ -55,7 +57,7 @@ The desktop flow requests these scopes:
 - `profile`
 - `https://www.googleapis.com/auth/drive.file`
 
-The Android **Connect Google Drive** menu page is optional and separate from first-launch login. It lets you save a Google server client id plus an HTTPS backend verification URL. When you tap **Sign in with Google**, the Android app requests a Google ID token and POSTs it to the configured backend endpoint for optional Drive setup without replacing the active login.
+The Android **Storage** screen is optional and separate from first-launch login. It lets you save a Google server client id plus an HTTPS backend verification URL. When you tap **Sign in with Google**, the Android app requests a Google ID token and POSTs it to the configured backend endpoint for optional Drive setup without replacing the active login.
 
 ## Microsoft OAuth desktop setup
 
@@ -78,7 +80,7 @@ The Microsoft desktop flow requests these scopes:
 - `User.Read`
 - `Files.ReadWrite.AppFolder`
 
-The Android **Connect Microsoft Drive** menu page likewise captures the client-id setup values while the app continues using local storage by default.
+The Android **Storage** screen likewise captures the Microsoft client-id setup values while the app continues using local storage by default.
 
 ## Run tests
 
@@ -115,11 +117,11 @@ Once sync succeeds, Android Studio exposes the checked-in Gradle run configurati
 
 For the Android run task, connect a device or start an emulator first. The task installs the debug build and launches `MainActivity` through `adb`. The app lets you:
 
-1. Start in **Local storage** automatically
-2. Add profiles (name + type) associated with the default local-storage account
-3. Use the app menu to open the Google Drive or Microsoft Drive setup pages
-4. Optionally save the Google server client id plus HTTPS backend verification URL if you want to connect Google Drive on Android
-5. See all profiles for the active storage account in a scrollable list
+1. Start on a dedicated **Login** screen and create the active account with Google or Microsoft
+2. Use the **Profiles** screen to build a profile tree for the active account
+3. Add time entries beside the selected profile in the same profile screen
+4. Open the **Storage** screen from the app menu for local, Google Drive, and Microsoft setup
+5. Optionally save the Google server client id plus HTTPS backend verification URL if you want to connect Google Drive on Android
 
 Data is persisted in the app's internal files directory at `/data/data/com.timemanagement.android/files/data/` (visible in Device File Explorer).
 
