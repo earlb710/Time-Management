@@ -736,7 +736,6 @@ public class DesktopApp {
                                  JLabel timeEntryStatusLabel,
                                  DefaultListModel<String> timeEntryListModel) {
         DefaultMutableTreeNode root = new DefaultMutableTreeNode("Profiles");
-        List<ProfileTreeNode> profileNodes = new ArrayList<>();
         if (currentAccount == null) {
             profileTreeModel.setRoot(root);
             profileSelectorTree.setSelectionPath(new TreePath(root.getPath()));
@@ -749,7 +748,6 @@ public class DesktopApp {
                     profile.getProfileName(),
                     profile.getProfileType()
             );
-            profileNodes.add(profileData);
             root.add(new DefaultMutableTreeNode(profileData));
         }
 
