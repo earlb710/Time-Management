@@ -7,20 +7,29 @@ import com.timemanagement.core.dataclass.GoogleOAuthSession;
 import com.timemanagement.core.dataclass.ManagedProfile;
 import com.timemanagement.core.dataclass.MicrosoftIdentity;
 import com.timemanagement.core.dataclass.MicrosoftOAuthSession;
+import com.timemanagement.core.dataclass.TimeEntry;
 import com.timemanagement.core.program.GoogleLoginManager;
 import com.timemanagement.core.program.LocalStorageAccountManager;
 import com.timemanagement.core.program.MicrosoftLoginManager;
 import com.timemanagement.core.program.ProfileManager;
+import com.timemanagement.core.program.TimeEntryManager;
 
 import javax.imageio.ImageIO;
 import javax.swing.*;
+import javax.swing.tree.DefaultMutableTreeNode;
+import javax.swing.tree.DefaultTreeModel;
+import javax.swing.tree.TreePath;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import java.util.prefs.Preferences;
 
@@ -34,6 +43,7 @@ public class DesktopApp {
     private final MicrosoftLoginManager microsoftLoginManager;
     private final LocalStorageAccountManager localStorageAccountManager;
     private final ProfileManager profileManager;
+    private final TimeEntryManager timeEntryManager;
     private final DesktopOAuthCredentialStore<GoogleOAuthSession> googleCredentialStore;
     private final DesktopOAuthCredentialStore<MicrosoftOAuthSession> microsoftCredentialStore;
     private final Preferences preferences;
@@ -47,6 +57,7 @@ public class DesktopApp {
         this.microsoftLoginManager = new MicrosoftLoginManager(dataStore);
         this.localStorageAccountManager = new LocalStorageAccountManager(dataStore);
         this.profileManager = new ProfileManager(dataStore);
+        this.timeEntryManager = new TimeEntryManager(dataStore);
 
         Path oauthDirectory = Path.of(System.getProperty("user.home"), ".time-management");
         this.googleCredentialStore = new DesktopOAuthCredentialStore<>(
@@ -133,17 +144,37 @@ public class DesktopApp {
         CardLayout cardLayout = new CardLayout();
         JPanel pagePanel = new JPanel(cardLayout);
 
-        DefaultListModel<String> profileListModel = new DefaultListModel<>();
+        DefaultTreeModel profileTreeModel = new DefaultTreeModel(new DefaultMutableTreeNode("Profiles"));
+        JTree profileSelectorTree = new JTree(profileTreeModel);
+        profileSelectorTree.getSelectionModel().setSelectionMode(javax.swing.tree.TreeSelectionModel.SINGLE_TREE_SELECTION);
+        profileSelectorTree.setRootVisible(true);
+        profileSelectorTree.setShowsRootHandles(true);
+
+        DefaultListModel<String> timeEntryListModel = new DefaultListModel<>();
+        JLabel timeEntryStatusLabel = new JLabel("Select the Profiles root or a profile to view entries.");
         JButton addProfileButton = new JButton("Add Profile");
         JTextField profileNameField = new JTextField();
         JTextField profileTypeField = new JTextField();
+        JTextField entryDescriptionField = new JTextField();
+        JTextField entryDurationField = new JTextField();
+        JButton addEntryButton = new JButton("Add Time Entry");
 
-        pagePanel.add(createLocalStoragePanel(), LOCAL_STORAGE_CARD);
-        pagePanel.add(createGoogleDrivePanel(root, storageStatusLabel, profileListModel, addProfileButton), GOOGLE_DRIVE_CARD);
-        pagePanel.add(createMicrosoftDrivePanel(root, storageStatusLabel, profileListModel, addProfileButton), MICROSOFT_DRIVE_CARD);
+        pagePanel.add(createMainScreenPanel(
+                profileSelectorTree,
+                profileNameField,
+                profileTypeField,
+                addProfileButton,
+                timeEntryStatusLabel,
+                timeEntryListModel,
+                entryDescriptionField,
+                entryDurationField,
+                addEntryButton
+        ), LOCAL_STORAGE_CARD);
+        pagePanel.add(createGoogleDrivePanel(root, storageStatusLabel), GOOGLE_DRIVE_CARD);
+        pagePanel.add(createMicrosoftDrivePanel(root, storageStatusLabel), MICROSOFT_DRIVE_CARD);
 
-        JList<String> profileList = new JList<>(profileListModel);
-        JPanel profilePanel = createProfilePanel(profileList, profileNameField, profileTypeField, addProfileButton);
+        profileSelectorTree.addTreeSelectionListener(event ->
+                refreshTimeEntriesForSelection(profileSelectorTree, timeEntryStatusLabel, timeEntryListModel));
 
         addProfileButton.addActionListener(event -> {
             try {
@@ -152,26 +183,59 @@ public class DesktopApp {
                         profileNameField.getText(),
                         profileTypeField.getText()
                 );
-                profileListModel.addElement(profile.getProfileName() + " (" + profile.getProfileType() + ")");
                 profileNameField.setText("");
                 profileTypeField.setText("");
+                refreshProfiles(profileTreeModel, profileSelectorTree, profile.getProfileId(), timeEntryStatusLabel, timeEntryListModel);
             } catch (RuntimeException ex) {
                 JOptionPane.showMessageDialog(root, ex.getMessage(), "Profile creation failed", JOptionPane.ERROR_MESSAGE);
             }
         });
 
-        JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, pagePanel, profilePanel);
-        splitPane.setResizeWeight(0.6);
-        splitPane.setBorder(null);
+        addEntryButton.addActionListener(event -> {
+            ProfileTreeNode selectedProfile = selectedProfileNode(profileSelectorTree);
+            if (selectedProfile == null) {
+                JOptionPane.showMessageDialog(root, "Select a profile in the tree first.", "No profile selected", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+            try {
+                int durationMinutes = Integer.parseInt(entryDurationField.getText().trim());
+                timeEntryManager.createEntry(selectedProfile.profileId(), entryDescriptionField.getText(), durationMinutes);
+                entryDescriptionField.setText("");
+                entryDurationField.setText("");
+                refreshTimeEntriesForSelection(profileSelectorTree, timeEntryStatusLabel, timeEntryListModel);
+            } catch (NumberFormatException ex) {
+                JOptionPane.showMessageDialog(root, "Duration must be a whole number of minutes.", "Entry creation failed", JOptionPane.ERROR_MESSAGE);
+            } catch (RuntimeException ex) {
+                JOptionPane.showMessageDialog(root, ex.getMessage(), "Entry creation failed", JOptionPane.ERROR_MESSAGE);
+            }
+        });
 
         root.add(storageStatusLabel, BorderLayout.NORTH);
-        root.add(splitPane, BorderLayout.CENTER);
+        root.add(pagePanel, BorderLayout.CENTER);
         root.setPreferredSize(new Dimension(1080, 620));
 
-        updateActiveAccount(localStorageAccountManager.useLocalStorage(), storageStatusLabel, profileListModel, addProfileButton);
+        updateActiveAccount(localStorageAccountManager.useLocalStorage(),
+                storageStatusLabel,
+                profileTreeModel,
+                profileSelectorTree,
+                timeEntryStatusLabel,
+                timeEntryListModel,
+                addProfileButton,
+                addEntryButton);
         cardLayout.show(pagePanel, LOCAL_STORAGE_CARD);
 
-        return new DesktopView(root, cardLayout, pagePanel, storageStatusLabel, profileListModel, addProfileButton);
+        return new DesktopView(
+                root,
+                cardLayout,
+                pagePanel,
+                storageStatusLabel,
+                profileTreeModel,
+                profileSelectorTree,
+                timeEntryStatusLabel,
+                timeEntryListModel,
+                addProfileButton,
+                addEntryButton
+        );
     }
 
     private JMenuBar createMenuBar(DesktopView desktopView) {
@@ -183,8 +247,12 @@ public class DesktopApp {
             desktopView.cardLayout().show(desktopView.pagePanel(), LOCAL_STORAGE_CARD);
             updateActiveAccount(localStorageAccountManager.useLocalStorage(),
                     desktopView.storageStatusLabel(),
-                    desktopView.profileListModel(),
-                    desktopView.addProfileButton());
+                    desktopView.profileTreeModel(),
+                    desktopView.profileSelectorTree(),
+                    desktopView.timeEntryStatusLabel(),
+                    desktopView.timeEntryListModel(),
+                    desktopView.addProfileButton(),
+                    desktopView.addEntryButton());
         });
 
         JMenuItem googleDriveItem = new JMenuItem("Connect Google Drive");
@@ -272,7 +340,14 @@ public class DesktopApp {
                     googleCredentialStore
             ).signInForLogin();
             GoogleAccount account = googleLoginManager.login(identity);
-            updateActiveAccount(account, desktopView.storageStatusLabel(), desktopView.profileListModel(), desktopView.addProfileButton());
+            updateActiveAccount(account,
+                    desktopView.storageStatusLabel(),
+                    desktopView.profileTreeModel(),
+                    desktopView.profileSelectorTree(),
+                    desktopView.timeEntryStatusLabel(),
+                    desktopView.timeEntryListModel(),
+                    desktopView.addProfileButton(),
+                    desktopView.addEntryButton());
             desktopView.cardLayout().show(desktopView.pagePanel(), LOCAL_STORAGE_CARD);
             return true;
         } catch (RuntimeException ex) {
@@ -289,7 +364,14 @@ public class DesktopApp {
             }
             try {
                 GoogleAccount account = microsoftLoginManager.login(new MicrosoftIdentity(email, email, email));
-                updateActiveAccount(account, desktopView.storageStatusLabel(), desktopView.profileListModel(), desktopView.addProfileButton());
+                updateActiveAccount(account,
+                        desktopView.storageStatusLabel(),
+                        desktopView.profileTreeModel(),
+                        desktopView.profileSelectorTree(),
+                        desktopView.timeEntryStatusLabel(),
+                        desktopView.timeEntryListModel(),
+                        desktopView.addProfileButton(),
+                        desktopView.addEntryButton());
                 desktopView.cardLayout().show(desktopView.pagePanel(), LOCAL_STORAGE_CARD);
                 return true;
             } catch (RuntimeException ex) {
@@ -385,9 +467,7 @@ public class DesktopApp {
     }
 
     private JPanel createGoogleDrivePanel(JPanel root,
-                                          JLabel storageStatusLabel,
-                                          DefaultListModel<String> profileListModel,
-                                          JButton addProfileButton) {
+                                          JLabel storageStatusLabel) {
         JTextField clientIdField = new JTextField(valueOrEmpty(DesktopOAuthClientConfig.defaultGoogleClientId()));
         JPasswordField passphraseField = new JPasswordField();
         JLabel connectionStatusLabel = new JLabel("Google Drive is optional. Enter a client id below to connect it.");
@@ -458,9 +538,7 @@ public class DesktopApp {
     }
 
     private JPanel createMicrosoftDrivePanel(JPanel root,
-                                             JLabel storageStatusLabel,
-                                             DefaultListModel<String> profileListModel,
-                                             JButton addProfileButton) {
+                                             JLabel storageStatusLabel) {
         JTextField clientIdField = new JTextField(valueOrEmpty(DesktopOAuthClientConfig.defaultMicrosoftClientId()));
         JPasswordField passphraseField = new JPasswordField();
         JLabel connectionStatusLabel = new JLabel("Microsoft Drive is optional. Enter a client id below to connect it.");
@@ -568,27 +646,56 @@ public class DesktopApp {
         return panel;
     }
 
-    private JPanel createProfilePanel(JList<String> profileList,
-                                      JTextField profileNameField,
-                                      JTextField profileTypeField,
-                                      JButton addProfileButton) {
-        JPanel panel = new JPanel(new BorderLayout(8, 8));
-        panel.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createTitledBorder("Profiles"),
+    private JPanel createMainScreenPanel(JTree profileSelectorTree,
+                                         JTextField profileNameField,
+                                         JTextField profileTypeField,
+                                         JButton addProfileButton,
+                                         JLabel timeEntryStatusLabel,
+                                         DefaultListModel<String> timeEntryListModel,
+                                         JTextField entryDescriptionField,
+                                         JTextField entryDurationField,
+                                         JButton addEntryButton) {
+        JPanel leftSelectorPanel = new JPanel(new BorderLayout(8, 8));
+        leftSelectorPanel.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createTitledBorder("Detail Selector"),
                 BorderFactory.createEmptyBorder(8, 8, 8, 8)
         ));
 
         JPanel profileInput = new JPanel(new GridLayout(0, 1, 0, 8));
-        profileInput.add(new JLabel("Profiles are always stored locally for the currently selected storage mode."));
+        profileInput.add(new JLabel("Profiles are the root selectors in this tree."));
         profileInput.add(new JLabel("Profile name:"));
         profileInput.add(profileNameField);
         profileInput.add(new JLabel("Type (person/service):"));
         profileInput.add(profileTypeField);
         profileInput.add(addProfileButton);
-        profileInput.add(new JLabel("Multiple profiles per storage account are supported."));
 
-        panel.add(new JScrollPane(profileList), BorderLayout.CENTER);
-        panel.add(profileInput, BorderLayout.SOUTH);
+        leftSelectorPanel.add(new JScrollPane(profileSelectorTree), BorderLayout.CENTER);
+        leftSelectorPanel.add(profileInput, BorderLayout.SOUTH);
+
+        JPanel rightDetailsPanel = new JPanel(new BorderLayout(8, 8));
+        rightDetailsPanel.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createTitledBorder("Details"),
+                BorderFactory.createEmptyBorder(8, 8, 8, 8)
+        ));
+
+        JList<String> entriesList = new JList<>(timeEntryListModel);
+        JPanel entryInput = new JPanel(new GridLayout(0, 1, 0, 8));
+        entryInput.add(new JLabel("Description:"));
+        entryInput.add(entryDescriptionField);
+        entryInput.add(new JLabel("Duration (minutes):"));
+        entryInput.add(entryDurationField);
+        entryInput.add(addEntryButton);
+
+        rightDetailsPanel.add(timeEntryStatusLabel, BorderLayout.NORTH);
+        rightDetailsPanel.add(new JScrollPane(entriesList), BorderLayout.CENTER);
+        rightDetailsPanel.add(entryInput, BorderLayout.SOUTH);
+
+        JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, leftSelectorPanel, rightDetailsPanel);
+        splitPane.setResizeWeight(0.35);
+        splitPane.setBorder(null);
+
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.add(splitPane, BorderLayout.CENTER);
         return panel;
     }
 
@@ -602,8 +709,12 @@ public class DesktopApp {
 
     private void updateActiveAccount(GoogleAccount account,
                                      JLabel storageStatusLabel,
-                                     DefaultListModel<String> profileListModel,
-                                     JButton addProfileButton) {
+                                     DefaultTreeModel profileTreeModel,
+                                     JTree profileSelectorTree,
+                                     JLabel timeEntryStatusLabel,
+                                     DefaultListModel<String> timeEntryListModel,
+                                     JButton addProfileButton,
+                                     JButton addEntryButton) {
         currentAccount = account;
         preferences.putBoolean(INITIAL_LOGIN_PROMPT_COMPLETED_KEY, !isLoginRequired(account));
         String provider = account.getProvider() == null ? "" : account.getProvider().trim().toLowerCase();
@@ -614,18 +725,97 @@ public class DesktopApp {
         } else {
             storageStatusLabel.setText("Using local storage on this device. Open the Storage menu to connect Google Drive or Microsoft Drive.");
         }
-        refreshProfiles(profileListModel);
+        refreshProfiles(profileTreeModel, profileSelectorTree, null, timeEntryStatusLabel, timeEntryListModel);
         addProfileButton.setEnabled(true);
+        addEntryButton.setEnabled(true);
     }
 
-    private void refreshProfiles(DefaultListModel<String> profileListModel) {
-        profileListModel.clear();
+    private void refreshProfiles(DefaultTreeModel profileTreeModel,
+                                 JTree profileSelectorTree,
+                                 String selectedProfileId,
+                                 JLabel timeEntryStatusLabel,
+                                 DefaultListModel<String> timeEntryListModel) {
+        DefaultMutableTreeNode root = new DefaultMutableTreeNode("Profiles");
+        List<ProfileTreeNode> profileNodes = new ArrayList<>();
         if (currentAccount == null) {
+            profileTreeModel.setRoot(root);
+            profileSelectorTree.setSelectionPath(new TreePath(root.getPath()));
+            refreshTimeEntriesForSelection(profileSelectorTree, timeEntryStatusLabel, timeEntryListModel);
             return;
         }
         for (ManagedProfile profile : profileManager.listProfiles(currentAccount.getAccountId())) {
-            profileListModel.addElement(profile.getProfileName() + " (" + profile.getProfileType() + ")");
+            ProfileTreeNode profileData = new ProfileTreeNode(
+                    profile.getProfileId(),
+                    profile.getProfileName(),
+                    profile.getProfileType()
+            );
+            profileNodes.add(profileData);
+            root.add(new DefaultMutableTreeNode(profileData));
         }
+
+        profileTreeModel.setRoot(root);
+
+        if (selectedProfileId != null) {
+            for (int i = 0; i < root.getChildCount(); i++) {
+                DefaultMutableTreeNode child = (DefaultMutableTreeNode) root.getChildAt(i);
+                Object value = child.getUserObject();
+                if (value instanceof ProfileTreeNode profileNode && profileNode.profileId().equals(selectedProfileId)) {
+                    profileSelectorTree.setSelectionPath(new TreePath(child.getPath()));
+                    refreshTimeEntriesForSelection(profileSelectorTree, timeEntryStatusLabel, timeEntryListModel);
+                    return;
+                }
+            }
+        }
+
+        profileSelectorTree.setSelectionPath(new TreePath(root.getPath()));
+        refreshTimeEntriesForSelection(profileSelectorTree, timeEntryStatusLabel, timeEntryListModel);
+    }
+
+    private void refreshTimeEntriesForSelection(JTree profileSelectorTree,
+                                                JLabel timeEntryStatusLabel,
+                                                DefaultListModel<String> timeEntryListModel) {
+        timeEntryListModel.clear();
+        if (currentAccount == null) {
+            timeEntryStatusLabel.setText("No account is currently active.");
+            return;
+        }
+
+        ProfileTreeNode selectedProfile = selectedProfileNode(profileSelectorTree);
+        if (selectedProfile != null) {
+            timeEntryStatusLabel.setText("Time entries for: " + selectedProfile.label());
+            for (TimeEntry entry : timeEntryManager.listEntries(selectedProfile.profileId())) {
+                timeEntryListModel.addElement(formatEntryLine(entry));
+            }
+            return;
+        }
+
+        timeEntryStatusLabel.setText("All time management entries");
+        List<TimeEntry> allEntries = new ArrayList<>();
+        for (ManagedProfile profile : profileManager.listProfiles(currentAccount.getAccountId())) {
+            allEntries.addAll(timeEntryManager.listEntries(profile.getProfileId()));
+        }
+        allEntries.sort(Comparator.comparing(TimeEntry::getStartedAt).reversed());
+        for (TimeEntry entry : allEntries) {
+            timeEntryListModel.addElement(formatEntryLine(entry));
+        }
+    }
+
+    private ProfileTreeNode selectedProfileNode(JTree profileSelectorTree) {
+        Object selected = profileSelectorTree.getLastSelectedPathComponent();
+        if (!(selected instanceof DefaultMutableTreeNode selectedNode)) {
+            return null;
+        }
+        Object value = selectedNode.getUserObject();
+        return value instanceof ProfileTreeNode profileNode ? profileNode : null;
+    }
+
+    private String formatEntryLine(TimeEntry entry) {
+        String startedAt = entry.getStartedAt() == null
+                ? "unknown start"
+                : DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+                .withZone(ZoneId.systemDefault())
+                .format(entry.getStartedAt());
+        return startedAt + " - " + entry.getDescription() + " (" + entry.getDurationMinutes() + "m)";
     }
 
     private String joinScopes(List<String> scopes) {
@@ -668,7 +858,22 @@ public class DesktopApp {
                                CardLayout cardLayout,
                                JPanel pagePanel,
                                JLabel storageStatusLabel,
-                               DefaultListModel<String> profileListModel,
-                               JButton addProfileButton) {
+                               DefaultTreeModel profileTreeModel,
+                               JTree profileSelectorTree,
+                               JLabel timeEntryStatusLabel,
+                               DefaultListModel<String> timeEntryListModel,
+                               JButton addProfileButton,
+                               JButton addEntryButton) {
+    }
+
+    private record ProfileTreeNode(String profileId, String profileName, String profileType) {
+        String label() {
+            return profileName + " (" + profileType + ")";
+        }
+
+        @Override
+        public String toString() {
+            return label();
+        }
     }
 }
