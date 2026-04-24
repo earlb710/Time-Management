@@ -22,21 +22,15 @@ import javax.swing.tree.TreePath;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.prefs.Preferences;
 
 public class DesktopApp {
-    private static final String LOCAL_STORAGE_CARD = "local-storage";
-    private static final String GOOGLE_DRIVE_CARD = "google-drive";
-    private static final String MICROSOFT_DRIVE_CARD = "microsoft-drive";
     private static final String INITIAL_LOGIN_PROMPT_COMPLETED_KEY = "initial-login-prompt-completed";
 
     private final GoogleLoginManager googleLoginManager;
@@ -47,11 +41,9 @@ public class DesktopApp {
     private final DesktopOAuthCredentialStore<GoogleOAuthSession> googleCredentialStore;
     private final DesktopOAuthCredentialStore<MicrosoftOAuthSession> microsoftCredentialStore;
     private final Preferences preferences;
-    private Path dataDirectory;
     private GoogleAccount currentAccount;
 
     public DesktopApp(Path dataDir) {
-        this.dataDirectory = dataDir;
         JsonDataStore dataStore = new JsonDataStore(dataDir);
         this.googleLoginManager = new GoogleLoginManager(dataStore);
         this.microsoftLoginManager = new MicrosoftLoginManager(dataStore);
@@ -91,7 +83,6 @@ public class DesktopApp {
         frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
 
         DesktopView desktopView = createDesktopView();
-        frame.setJMenuBar(createMenuBar(desktopView));
         frame.setContentPane(desktopView.panel());
         frame.pack();
         frame.setLocationRelativeTo(null);
@@ -135,15 +126,6 @@ public class DesktopApp {
         JPanel root = new JPanel(new BorderLayout(10, 10));
         root.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
-        JLabel storageStatusLabel = new JLabel();
-        storageStatusLabel.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createTitledBorder("Storage mode"),
-                BorderFactory.createEmptyBorder(4, 6, 4, 6)
-        ));
-
-        CardLayout cardLayout = new CardLayout();
-        JPanel pagePanel = new JPanel(cardLayout);
-
         DefaultTreeModel profileTreeModel = new DefaultTreeModel(new DefaultMutableTreeNode("Profiles"));
         JTree profileSelectorTree = new JTree(profileTreeModel);
         profileSelectorTree.getSelectionModel().setSelectionMode(javax.swing.tree.TreeSelectionModel.SINGLE_TREE_SELECTION);
@@ -159,7 +141,7 @@ public class DesktopApp {
         JTextField entryDurationField = new JTextField();
         JButton addEntryButton = new JButton("Add Time Entry");
 
-        pagePanel.add(createMainScreenPanel(
+        JPanel mainPanel = createMainScreenPanel(
                 profileSelectorTree,
                 profileNameField,
                 profileTypeField,
@@ -169,9 +151,7 @@ public class DesktopApp {
                 entryDescriptionField,
                 entryDurationField,
                 addEntryButton
-        ), LOCAL_STORAGE_CARD);
-        pagePanel.add(createGoogleDrivePanel(root, storageStatusLabel), GOOGLE_DRIVE_CARD);
-        pagePanel.add(createMicrosoftDrivePanel(root, storageStatusLabel), MICROSOFT_DRIVE_CARD);
+        );
 
         profileSelectorTree.addTreeSelectionListener(event ->
                 refreshTimeEntriesForSelection(profileSelectorTree, timeEntryStatusLabel, timeEntryListModel));
@@ -210,25 +190,19 @@ public class DesktopApp {
             }
         });
 
-        root.add(storageStatusLabel, BorderLayout.NORTH);
-        root.add(pagePanel, BorderLayout.CENTER);
+        root.add(mainPanel, BorderLayout.CENTER);
         root.setPreferredSize(new Dimension(1080, 620));
 
         updateActiveAccount(localStorageAccountManager.useLocalStorage(),
-                storageStatusLabel,
                 profileTreeModel,
                 profileSelectorTree,
                 timeEntryStatusLabel,
                 timeEntryListModel,
                 addProfileButton,
                 addEntryButton);
-        cardLayout.show(pagePanel, LOCAL_STORAGE_CARD);
 
         return new DesktopView(
                 root,
-                cardLayout,
-                pagePanel,
-                storageStatusLabel,
                 profileTreeModel,
                 profileSelectorTree,
                 timeEntryStatusLabel,
@@ -236,63 +210,6 @@ public class DesktopApp {
                 addProfileButton,
                 addEntryButton
         );
-    }
-
-    private JMenuBar createMenuBar(DesktopView desktopView) {
-        JMenuBar menuBar = new JMenuBar();
-        JMenu storageMenu = new JMenu("Storage");
-
-        JMenuItem localStorageItem = new JMenuItem("Local Storage");
-        localStorageItem.addActionListener(event -> {
-            desktopView.cardLayout().show(desktopView.pagePanel(), LOCAL_STORAGE_CARD);
-            updateActiveAccount(localStorageAccountManager.useLocalStorage(),
-                    desktopView.storageStatusLabel(),
-                    desktopView.profileTreeModel(),
-                    desktopView.profileSelectorTree(),
-                    desktopView.timeEntryStatusLabel(),
-                    desktopView.timeEntryListModel(),
-                    desktopView.addProfileButton(),
-                    desktopView.addEntryButton());
-        });
-
-        JMenuItem googleDriveItem = new JMenuItem("Connect Google Drive");
-        googleDriveItem.addActionListener(event -> showDesktopCard(
-                desktopView,
-                GOOGLE_DRIVE_CARD,
-                "Open Google Drive connection settings."
-        ));
-
-        JMenuItem microsoftDriveItem = new JMenuItem("Connect Microsoft Drive");
-        microsoftDriveItem.addActionListener(event -> showDesktopCard(
-                desktopView,
-                MICROSOFT_DRIVE_CARD,
-                "Open Microsoft Drive connection settings."
-        ));
-
-        storageMenu.add(localStorageItem);
-        storageMenu.add(googleDriveItem);
-        storageMenu.add(microsoftDriveItem);
-        menuBar.add(storageMenu);
-        return menuBar;
-    }
-
-    private JPanel createLocalStoragePanel() {
-        JPanel panel = new JPanel(new BorderLayout(8, 8));
-        panel.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createTitledBorder("Local Storage"),
-                BorderFactory.createEmptyBorder(8, 8, 8, 8)
-        ));
-        JLabel content = new JLabel("""
-                <html>
-                <h2>Local storage is the default</h2>
-                <p>The desktop app stores accounts and profiles in the local <b>data/</b> directory by default.</p>
-                <p>Use the <b>Storage</b> menu to optionally connect Google Drive or Microsoft Drive without giving up the local profile workflow.</p>
-                 <p>Saved browser sign-in sessions are encrypted locally under <b>~/.time-management/</b>.</p>
-                 </html>
-                 """);
-        panel.add(content, BorderLayout.NORTH);
-        panel.add(createLocalStorageDirectoryPanel(), BorderLayout.CENTER);
-        return panel;
     }
 
     private void maybePromptForRequiredLogin(JFrame frame, DesktopView desktopView) {
@@ -309,11 +226,7 @@ public class DesktopApp {
         while (true) {
             int choice = JOptionPane.showOptionDialog(
                     frame,
-                    """
-                    Choose the provider you want to use for login.
-
-                    Drive/OAuth setup stays optional on the separate Google Drive and Microsoft Drive screens.
-                    """,
+                    "Choose the provider you want to use to sign in.",
                     "Sign-in required",
                     JOptionPane.DEFAULT_OPTION,
                     JOptionPane.INFORMATION_MESSAGE,
@@ -341,14 +254,12 @@ public class DesktopApp {
             ).signInForLogin();
             GoogleAccount account = googleLoginManager.login(identity);
             updateActiveAccount(account,
-                    desktopView.storageStatusLabel(),
                     desktopView.profileTreeModel(),
                     desktopView.profileSelectorTree(),
                     desktopView.timeEntryStatusLabel(),
                     desktopView.timeEntryListModel(),
                     desktopView.addProfileButton(),
                     desktopView.addEntryButton());
-            desktopView.cardLayout().show(desktopView.pagePanel(), LOCAL_STORAGE_CARD);
             return true;
         } catch (RuntimeException ex) {
             JOptionPane.showMessageDialog(frame, ex.getMessage(), "Google sign-in failed", JOptionPane.ERROR_MESSAGE);
@@ -365,14 +276,12 @@ public class DesktopApp {
             try {
                 GoogleAccount account = microsoftLoginManager.login(new MicrosoftIdentity(email, email, email));
                 updateActiveAccount(account,
-                        desktopView.storageStatusLabel(),
                         desktopView.profileTreeModel(),
                         desktopView.profileSelectorTree(),
                         desktopView.timeEntryStatusLabel(),
                         desktopView.timeEntryListModel(),
                         desktopView.addProfileButton(),
                         desktopView.addEntryButton());
-                desktopView.cardLayout().show(desktopView.pagePanel(), LOCAL_STORAGE_CARD);
                 return true;
             } catch (RuntimeException ex) {
                 JOptionPane.showMessageDialog(frame, ex.getMessage(), "Microsoft sign-in failed", JOptionPane.ERROR_MESSAGE);
@@ -394,258 +303,6 @@ public class DesktopApp {
         }
     }
 
-    private void showDesktopCard(DesktopView desktopView, String card, String statusText) {
-        desktopView.cardLayout().show(desktopView.pagePanel(), card);
-        desktopView.storageStatusLabel().setText(statusText);
-    }
-
-    private JPanel createLocalStorageDirectoryPanel() {
-        JPanel panel = new JPanel(new BorderLayout(8, 8));
-
-        JTextField dataDirectoryField = new JTextField(dataDirectory.toAbsolutePath().normalize().toString());
-        dataDirectoryField.setEditable(true);
-        dataDirectoryField.addActionListener(event -> applyDataDirectoryFromField(panel, dataDirectoryField));
-        dataDirectoryField.addFocusListener(new java.awt.event.FocusAdapter() {
-            @Override
-            public void focusLost(java.awt.event.FocusEvent e) {
-                applyDataDirectoryFromField(panel, dataDirectoryField);
-            }
-        });
-
-        JButton selectFolderButton = new JButton("Select Folder");
-        selectFolderButton.addActionListener(event -> selectDesktopDataDirectory(panel, dataDirectoryField));
-
-        JPanel directoryPanel = new JPanel(new BorderLayout(6, 6));
-        directoryPanel.setBorder(BorderFactory.createTitledBorder("Data directory"));
-        directoryPanel.add(dataDirectoryField, BorderLayout.CENTER);
-        directoryPanel.add(selectFolderButton, BorderLayout.EAST);
-
-        panel.add(directoryPanel, BorderLayout.NORTH);
-        return panel;
-    }
-
-    private void selectDesktopDataDirectory(Component parent, JTextField dataDirectoryField) {
-        JFileChooser chooser = new JFileChooser();
-        chooser.setDialogTitle("Select data directory");
-        chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-        chooser.setAcceptAllFileFilterUsed(false);
-        File current = dataDirectory.toAbsolutePath().normalize().toFile();
-        if (current.isDirectory()) {
-            chooser.setCurrentDirectory(current);
-            chooser.setSelectedFile(current);
-        }
-        if (chooser.showDialog(parent, "Select Folder") == JFileChooser.APPROVE_OPTION) {
-            File selected = chooser.getSelectedFile();
-            if (selected != null) {
-                Path chosen = selected.toPath().toAbsolutePath().normalize();
-                try {
-                    Files.createDirectories(chosen);
-                    dataDirectory = chosen;
-                    dataDirectoryField.setText(chosen.toString());
-                } catch (IOException ex) {
-                    JOptionPane.showMessageDialog(parent, ex.getMessage(), "Select folder failed", JOptionPane.ERROR_MESSAGE);
-                }
-            }
-        }
-    }
-
-    private void applyDataDirectoryFromField(Component parent, JTextField dataDirectoryField) {
-        String text = dataDirectoryField.getText();
-        if (text == null || text.isBlank()) {
-            dataDirectoryField.setText(dataDirectory.toAbsolutePath().normalize().toString());
-            return;
-        }
-        try {
-            Path typed = Path.of(text.trim()).toAbsolutePath().normalize();
-            Files.createDirectories(typed);
-            dataDirectory = typed;
-            dataDirectoryField.setText(typed.toString());
-        } catch (IOException | RuntimeException ex) {
-            JOptionPane.showMessageDialog(parent, ex.getMessage(), "Select folder failed", JOptionPane.ERROR_MESSAGE);
-            dataDirectoryField.setText(dataDirectory.toAbsolutePath().normalize().toString());
-        }
-    }
-
-    private JPanel createGoogleDrivePanel(JPanel root,
-                                          JLabel storageStatusLabel) {
-        JTextField clientIdField = new JTextField(valueOrEmpty(DesktopOAuthClientConfig.defaultGoogleClientId()));
-        JPasswordField passphraseField = new JPasswordField();
-        JLabel connectionStatusLabel = new JLabel("Google Drive is optional. Enter a client id below to connect it.");
-
-        JButton connectButton = new JButton("Connect Google Drive");
-        JButton restoreButton = new JButton("Use Saved Google Session");
-        JButton forgetButton = new JButton("Forget Saved Google Session");
-
-        connectButton.addActionListener(event -> {
-            char[] passphrase = readPassphrase(passphraseField);
-            try {
-                GoogleOAuthSession session = new DesktopGoogleOAuthService(
-                        DesktopOAuthClientConfig.loadGoogle(clientIdField.getText()),
-                        googleCredentialStore
-                ).signIn(passphrase);
-                connectionStatusLabel.setText("Google Drive connected as " + describeIdentity(session.getIdentity().getDisplayName(), session.getIdentity().getEmail()) + ".");
-            } catch (RuntimeException ex) {
-                JOptionPane.showMessageDialog(root, ex.getMessage(), "Google Drive connection failed", JOptionPane.ERROR_MESSAGE);
-            } finally {
-                Arrays.fill(passphrase, '\0');
-            }
-        });
-
-        restoreButton.addActionListener(event -> {
-            char[] passphrase = readPassphrase(passphraseField);
-            try {
-                GoogleOAuthSession session = new DesktopGoogleOAuthService(
-                        DesktopOAuthClientConfig.loadGoogle(clientIdField.getText()),
-                        googleCredentialStore
-                ).restoreSession(passphrase).orElseThrow(() -> new IllegalStateException("No saved Google session was found."));
-                connectionStatusLabel.setText("Restored Google Drive connection for " + describeIdentity(session.getIdentity().getDisplayName(), session.getIdentity().getEmail()) + ".");
-            } catch (RuntimeException ex) {
-                JOptionPane.showMessageDialog(root, ex.getMessage(), "Google Drive restore failed", JOptionPane.ERROR_MESSAGE);
-            } finally {
-                Arrays.fill(passphrase, '\0');
-            }
-        });
-
-        forgetButton.addActionListener(event -> {
-            try {
-                googleCredentialStore.clear();
-                connectionStatusLabel.setText("Saved Google Drive session removed.");
-            } catch (RuntimeException ex) {
-                JOptionPane.showMessageDialog(root, ex.getMessage(), "Google Drive disconnect failed", JOptionPane.ERROR_MESSAGE);
-            }
-        });
-
-        return createOAuthSetupPanel(
-                "Connect Google Drive",
-                """
-                        <html>
-                        <ol>
-                          <li>Create a <b>Desktop app</b> OAuth client in Google Cloud.</li>
-                          <li>Paste the client id below, or keep using <b>TIME_MANAGEMENT_GOOGLE_CLIENT_ID</b>.</li>
-                          <li>Choose a credential passphrase. It encrypts the saved local session file.</li>
-                          <li>Click <b>Connect Google Drive</b>. The app opens your browser and listens on a loopback callback.</li>
-                          <li>Approve access so the app can use <b>drive.file</b> plus your basic profile scopes.</li>
-                        </ol>
-                        <p>Requested scopes: %s</p>
-                        </html>
-                        """.formatted(joinScopes(DesktopOAuthClientConfig.googleDefaultScopes())),
-                "Google OAuth client id:",
-                clientIdField,
-                passphraseField,
-                connectionStatusLabel,
-                List.of(connectButton, restoreButton, forgetButton)
-        );
-    }
-
-    private JPanel createMicrosoftDrivePanel(JPanel root,
-                                             JLabel storageStatusLabel) {
-        JTextField clientIdField = new JTextField(valueOrEmpty(DesktopOAuthClientConfig.defaultMicrosoftClientId()));
-        JPasswordField passphraseField = new JPasswordField();
-        JLabel connectionStatusLabel = new JLabel("Microsoft Drive is optional. Enter a client id below to connect it.");
-
-        JButton connectButton = new JButton("Connect Microsoft Drive");
-        JButton restoreButton = new JButton("Use Saved Microsoft Session");
-        JButton forgetButton = new JButton("Forget Saved Microsoft Session");
-
-        connectButton.addActionListener(event -> {
-            char[] passphrase = readPassphrase(passphraseField);
-            try {
-                MicrosoftOAuthSession session = new DesktopMicrosoftOAuthService(
-                        DesktopOAuthClientConfig.loadMicrosoft(clientIdField.getText()),
-                        microsoftCredentialStore
-                ).signIn(passphrase);
-                connectionStatusLabel.setText("Microsoft Drive connected as " + describeIdentity(session.getIdentity().getDisplayName(), session.getIdentity().getEmail()) + ".");
-            } catch (RuntimeException ex) {
-                JOptionPane.showMessageDialog(root, ex.getMessage(), "Microsoft Drive connection failed", JOptionPane.ERROR_MESSAGE);
-            } finally {
-                Arrays.fill(passphrase, '\0');
-            }
-        });
-
-        restoreButton.addActionListener(event -> {
-            char[] passphrase = readPassphrase(passphraseField);
-            try {
-                MicrosoftOAuthSession session = new DesktopMicrosoftOAuthService(
-                        DesktopOAuthClientConfig.loadMicrosoft(clientIdField.getText()),
-                        microsoftCredentialStore
-                ).restoreSession(passphrase).orElseThrow(() -> new IllegalStateException("No saved Microsoft session was found."));
-                connectionStatusLabel.setText("Restored Microsoft Drive connection for " + describeIdentity(session.getIdentity().getDisplayName(), session.getIdentity().getEmail()) + ".");
-            } catch (RuntimeException ex) {
-                JOptionPane.showMessageDialog(root, ex.getMessage(), "Microsoft Drive restore failed", JOptionPane.ERROR_MESSAGE);
-            } finally {
-                Arrays.fill(passphrase, '\0');
-            }
-        });
-
-        forgetButton.addActionListener(event -> {
-            try {
-                microsoftCredentialStore.clear();
-                connectionStatusLabel.setText("Saved Microsoft Drive session removed.");
-            } catch (RuntimeException ex) {
-                JOptionPane.showMessageDialog(root, ex.getMessage(), "Microsoft Drive disconnect failed", JOptionPane.ERROR_MESSAGE);
-            }
-        });
-
-        return createOAuthSetupPanel(
-                "Connect Microsoft Drive",
-                """
-                        <html>
-                        <ol>
-                          <li>Create a public client/app registration in Microsoft Entra ID / Azure.</li>
-                          <li>Paste the application client id below, or keep using <b>TIME_MANAGEMENT_MICROSOFT_CLIENT_ID</b>.</li>
-                          <li>Choose a credential passphrase to encrypt the saved local session file.</li>
-                          <li>Click <b>Connect Microsoft Drive</b>. The app opens your browser and waits for the loopback callback.</li>
-                          <li>Approve the requested OneDrive and profile permissions.</li>
-                        </ol>
-                        <p>Requested scopes: %s</p>
-                        </html>
-                        """.formatted(joinScopes(DesktopOAuthClientConfig.microsoftDefaultScopes())),
-                "Microsoft OAuth client id:",
-                clientIdField,
-                passphraseField,
-                connectionStatusLabel,
-                List.of(connectButton, restoreButton, forgetButton)
-        );
-    }
-
-    private JPanel createOAuthSetupPanel(String title,
-                                         String instructions,
-                                         String clientIdLabel,
-                                         JTextField clientIdField,
-                                         JPasswordField passphraseField,
-                                         JLabel connectionStatusLabel,
-                                         List<JButton> actionButtons) {
-        JPanel panel = new JPanel(new BorderLayout(8, 8));
-        panel.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createTitledBorder(title),
-                BorderFactory.createEmptyBorder(8, 8, 8, 8)
-        ));
-
-        JPanel form = new JPanel(new GridLayout(0, 1, 0, 8));
-        form.add(new JLabel(instructions));
-
-        JPanel clientIdPanel = new JPanel(new BorderLayout(6, 6));
-        clientIdPanel.add(new JLabel(clientIdLabel), BorderLayout.NORTH);
-        clientIdPanel.add(clientIdField, BorderLayout.CENTER);
-        form.add(clientIdPanel);
-
-        JPanel passphrasePanel = new JPanel(new BorderLayout(6, 6));
-        passphrasePanel.add(new JLabel("Credential passphrase:"), BorderLayout.NORTH);
-        passphrasePanel.add(passphraseField, BorderLayout.CENTER);
-        passphrasePanel.add(new JLabel("<html><span style='font-size:9px;color:#666666;'>Used to encrypt and unlock saved sign-in sessions on this computer.</span></html>"), BorderLayout.SOUTH);
-        form.add(passphrasePanel);
-
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
-        for (JButton button : actionButtons) {
-            buttonPanel.add(button);
-        }
-        form.add(buttonPanel);
-        form.add(connectionStatusLabel);
-
-        panel.add(form, BorderLayout.NORTH);
-        return panel;
-    }
-
     private JPanel createMainScreenPanel(JTree profileSelectorTree,
                                          JTextField profileNameField,
                                          JTextField profileTypeField,
@@ -657,7 +314,7 @@ public class DesktopApp {
                                          JButton addEntryButton) {
         JPanel leftSelectorPanel = new JPanel(new BorderLayout(8, 8));
         leftSelectorPanel.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createTitledBorder("Detail Selector"),
+                BorderFactory.createTitledBorder("Profile Selector"),
                 BorderFactory.createEmptyBorder(8, 8, 8, 8)
         ));
 
@@ -699,16 +356,7 @@ public class DesktopApp {
         return panel;
     }
 
-    private char[] readPassphrase(JPasswordField passphraseField) {
-        char[] passphrase = passphraseField.getPassword();
-        if (passphrase == null || passphrase.length == 0) {
-            throw new IllegalArgumentException("Enter a credential passphrase before continuing.");
-        }
-        return passphrase;
-    }
-
     private void updateActiveAccount(GoogleAccount account,
-                                     JLabel storageStatusLabel,
                                      DefaultTreeModel profileTreeModel,
                                      JTree profileSelectorTree,
                                      JLabel timeEntryStatusLabel,
@@ -717,14 +365,6 @@ public class DesktopApp {
                                      JButton addEntryButton) {
         currentAccount = account;
         preferences.putBoolean(INITIAL_LOGIN_PROMPT_COMPLETED_KEY, !isLoginRequired(account));
-        String provider = account.getProvider() == null ? "" : account.getProvider().trim().toLowerCase();
-        if ("google".equals(provider)) {
-            storageStatusLabel.setText("Signed in with Google as " + account.getDisplayName() + ". Local profiles stay available.");
-        } else if ("microsoft".equals(provider)) {
-            storageStatusLabel.setText("Signed in with Microsoft as " + account.getDisplayName() + ". Local profiles stay available.");
-        } else {
-            storageStatusLabel.setText("Using local storage on this device. Open the Storage menu to connect Google Drive or Microsoft Drive.");
-        }
         refreshProfiles(profileTreeModel, profileSelectorTree, null, timeEntryStatusLabel, timeEntryListModel);
         addProfileButton.setEnabled(true);
         addEntryButton.setEnabled(true);
@@ -809,29 +449,11 @@ public class DesktopApp {
 
     private String formatEntryLine(TimeEntry entry) {
         String startedAt = entry.getStartedAt() == null
-                ? "unknown start"
+                ? "(no start time)"
                 : DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
                 .withZone(ZoneId.systemDefault())
                 .format(entry.getStartedAt());
         return startedAt + " - " + entry.getDescription() + " (" + entry.getDurationMinutes() + "m)";
-    }
-
-    private String joinScopes(List<String> scopes) {
-        return String.join(", ", scopes);
-    }
-
-    private String valueOrEmpty(String value) {
-        return value == null ? "" : value;
-    }
-
-    private String describeIdentity(String displayName, String email) {
-        if (displayName != null && !displayName.isBlank() && email != null && !email.isBlank() && !displayName.equals(email)) {
-            return displayName + " (" + email + ")";
-        }
-        if (email != null && !email.isBlank()) {
-            return email;
-        }
-        return displayName == null || displayName.isBlank() ? "the selected account" : displayName;
     }
 
     private boolean requiresStartupLogin() {
@@ -853,9 +475,6 @@ public class DesktopApp {
     }
 
     private record DesktopView(JPanel panel,
-                               CardLayout cardLayout,
-                               JPanel pagePanel,
-                               JLabel storageStatusLabel,
                                DefaultTreeModel profileTreeModel,
                                JTree profileSelectorTree,
                                JLabel timeEntryStatusLabel,
