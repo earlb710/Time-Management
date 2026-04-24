@@ -250,13 +250,17 @@ public class DesktopApp {
     }
 
     private boolean promptForGoogleWebLogin(JFrame frame, DesktopView desktopView) {
-        String clientId = acquireGoogleClientId(frame);
-        if (clientId == null) {
-            return false;
+        DesktopOAuthClientConfig config = DesktopOAuthClientConfig.loadGoogleLoginFromFileIfPresent();
+        if (config == null) {
+            String clientId = acquireGoogleClientId(frame);
+            if (clientId == null) {
+                return false;
+            }
+            config = DesktopOAuthClientConfig.loadGoogleLogin(clientId);
         }
         try {
             GoogleIdentity identity = new DesktopGoogleOAuthService(
-                    DesktopOAuthClientConfig.loadGoogleLogin(clientId),
+                    config,
                     googleCredentialStore
             ).signInForLogin();
             GoogleAccount account = googleLoginManager.login(identity);

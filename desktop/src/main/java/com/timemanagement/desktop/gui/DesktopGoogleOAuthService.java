@@ -164,6 +164,9 @@ public class DesktopGoogleOAuthService {
         Map<String, String> params = new LinkedHashMap<>();
         params.put("code", callback.code());
         params.put("client_id", config.getClientId());
+        if (config.getClientSecret() != null) {
+            params.put("client_secret", config.getClientSecret());
+        }
         params.put("redirect_uri", callback.redirectUri());
         params.put("grant_type", "authorization_code");
         params.put("code_verifier", callback.codeVerifier());
@@ -189,6 +192,9 @@ public class DesktopGoogleOAuthService {
 
         Map<String, String> params = new LinkedHashMap<>();
         params.put("client_id", config.getClientId());
+        if (config.getClientSecret() != null) {
+            params.put("client_secret", config.getClientSecret());
+        }
         params.put("refresh_token", refreshToken);
         params.put("grant_type", "refresh_token");
         JsonNode tokenResponse = postForm("https://oauth2.googleapis.com/token", params, "Could not refresh the Google access token.");
