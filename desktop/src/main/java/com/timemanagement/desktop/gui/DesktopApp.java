@@ -45,6 +45,9 @@ public class DesktopApp {
     private final DesktopOAuthCredentialStore<MicrosoftOAuthSession> microsoftCredentialStore;
     private final Preferences preferences;
     private GoogleAccount currentAccount;
+    private JFrame mainFrame;
+    private JMenuItem signInMenuItem;
+    private JMenuItem signOutMenuItem;
 
     public DesktopApp(Path dataDir) {
         JsonDataStore dataStore = new JsonDataStore(dataDir);
@@ -82,15 +85,16 @@ public class DesktopApp {
     }
 
     public void show() {
-        JFrame frame = new JFrame("Time Management - Desktop");
-        frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
+        mainFrame = new JFrame(buildFrameTitle(currentAccount));
+        mainFrame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
 
         DesktopView desktopView = createDesktopView();
-        frame.setContentPane(desktopView.panel());
-        frame.pack();
-        frame.setLocationRelativeTo(null);
-        frame.setVisible(true);
-        maybePromptForRequiredLogin(frame, desktopView);
+        mainFrame.setContentPane(desktopView.panel());
+        mainFrame.setJMenuBar(buildAccountMenuBar(desktopView));
+        mainFrame.pack();
+        mainFrame.setLocationRelativeTo(null);
+        mainFrame.setVisible(true);
+        maybePromptForRequiredLogin(mainFrame, desktopView);
     }
 
     public void exportUiScreenshot(Path outputPath) {
@@ -441,6 +445,10 @@ public class DesktopApp {
         refreshProfiles(profileTreeModel, profileSelectorTree, null, timeEntryStatusLabel, timeEntryListModel);
         addProfileButton.setEnabled(true);
         addEntryButton.setEnabled(true);
+        if (mainFrame != null) {
+            mainFrame.setTitle(buildFrameTitle(currentAccount));
+        }
+        refreshAccountMenu();
     }
 
     private void refreshProfiles(DefaultTreeModel profileTreeModel,
@@ -539,6 +547,65 @@ public class DesktopApp {
         }
         String provider = account.getProvider();
         return provider == null || provider.isBlank() || LocalStorageAccountManager.PROVIDER.equalsIgnoreCase(provider);
+    }
+
+    private String buildFrameTitle(GoogleAccount account) {
+        if (account == null || isLoginRequired(account)) {
+            return "Time Management - Desktop";
+        }
+        String name = account.getDisplayName();
+        String email = account.getEmail();
+        if (name != null && !name.isBlank() && email != null && !email.isBlank()) {
+            return "Time Management - " + name + " (" + email + ")";
+        }
+        if (email != null && !email.isBlank()) {
+            return "Time Management - " + email;
+        }
+        return "Time Management - Desktop";
+    }
+
+    private JMenuBar buildAccountMenuBar(DesktopView desktopView) {
+        JMenuBar menuBar = new JMenuBar();
+
+        JMenu accountMenu = new JMenu("Account");
+
+        signInMenuItem = new JMenuItem("Sign In\u2026");
+        signInMenuItem.addActionListener(e -> promptForStartupLogin(mainFrame, desktopView));
+
+        signOutMenuItem = new JMenuItem("Sign Out");
+        signOutMenuItem.addActionListener(e -> signOut(desktopView));
+
+        accountMenu.add(signInMenuItem);
+        accountMenu.add(signOutMenuItem);
+
+        menuBar.add(accountMenu);
+
+        refreshAccountMenu();
+        return menuBar;
+    }
+
+    private void refreshAccountMenu() {
+        boolean signedIn = !isLoginRequired(currentAccount);
+        if (signInMenuItem != null) {
+            signInMenuItem.setVisible(!signedIn);
+        }
+        if (signOutMenuItem != null) {
+            signOutMenuItem.setVisible(signedIn);
+        }
+    }
+
+    private void signOut(DesktopView desktopView) {
+        googleCredentialStore.clear();
+        microsoftCredentialStore.clear();
+        preferences.remove(INITIAL_LOGIN_PROMPT_COMPLETED_KEY);
+        GoogleAccount localAccount = localStorageAccountManager.useLocalStorage();
+        updateActiveAccount(localAccount,
+                desktopView.profileTreeModel(),
+                desktopView.profileSelectorTree(),
+                desktopView.timeEntryStatusLabel(),
+                desktopView.timeEntryListModel(),
+                desktopView.addProfileButton(),
+                desktopView.addEntryButton());
     }
 
     private String normalizeLoginEmail(String value) {
