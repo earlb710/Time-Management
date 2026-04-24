@@ -22,6 +22,8 @@ import javax.swing.tree.TreePath;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.io.IOException;
+import java.net.URI;
 import java.nio.file.Path;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -32,6 +34,7 @@ import java.util.prefs.Preferences;
 
 public class DesktopApp {
     private static final String INITIAL_LOGIN_PROMPT_COMPLETED_KEY = "initial-login-prompt-completed";
+    private static final String GOOGLE_CLIENT_ID_KEY = "google-client-id";
 
     private final GoogleLoginManager googleLoginManager;
     private final MicrosoftLoginManager microsoftLoginManager;
@@ -247,9 +250,13 @@ public class DesktopApp {
     }
 
     private boolean promptForGoogleWebLogin(JFrame frame, DesktopView desktopView) {
+        String clientId = acquireGoogleClientId(frame);
+        if (clientId == null) {
+            return false;
+        }
         try {
             GoogleIdentity identity = new DesktopGoogleOAuthService(
-                    DesktopOAuthClientConfig.loadGoogleLogin(null),
+                    DesktopOAuthClientConfig.loadGoogleLogin(clientId),
                     googleCredentialStore
             ).signInForLogin();
             GoogleAccount account = googleLoginManager.login(identity);
@@ -264,6 +271,68 @@ public class DesktopApp {
         } catch (RuntimeException ex) {
             JOptionPane.showMessageDialog(frame, ex.getMessage(), "Google sign-in failed", JOptionPane.ERROR_MESSAGE);
             return false;
+        }
+    }
+
+    private String acquireGoogleClientId(Component parent) {
+        String clientId = DesktopOAuthClientConfig.defaultGoogleClientId();
+        if (clientId != null && !clientId.isBlank()) {
+            return clientId;
+        }
+        clientId = preferences.get(GOOGLE_CLIENT_ID_KEY, null);
+        if (clientId != null && !clientId.isBlank()) {
+            return clientId;
+        }
+
+        JTextField clientIdField = new JTextField(40);
+
+        JButton openConsoleButton = new JButton("Open Google Cloud Console");
+        openConsoleButton.addActionListener(e -> {
+            try {
+                URI consoleUri = URI.create("https://console.cloud.google.com/apis/credentials/oauthclient");
+                if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
+                    Desktop.getDesktop().browse(consoleUri);
+                } else {
+                    JOptionPane.showMessageDialog(parent,
+                            "Open this URL in your browser:\n" + consoleUri,
+                            "Open browser manually", JOptionPane.INFORMATION_MESSAGE);
+                }
+            } catch (IOException ex) {
+                JOptionPane.showMessageDialog(parent,
+                        "Could not open the browser: " + ex.getMessage(),
+                        "Browser error", JOptionPane.ERROR_MESSAGE);
+            }
+        });
+
+        JPanel instructions = new JPanel(new GridLayout(0, 1, 0, 4));
+        instructions.add(new JLabel("<html><b>A Google OAuth client ID is needed to sign in with Google.</b></html>"));
+        instructions.add(new JLabel(" "));
+        instructions.add(new JLabel("Steps:"));
+        instructions.add(new JLabel("1. Click the button below to open Google Cloud Console."));
+        instructions.add(new JLabel("2. Create or select a Google Cloud project."));
+        instructions.add(new JLabel("3. Go to APIs & Services \u2192 Credentials."));
+        instructions.add(new JLabel("4. Click \u201cCreate Credentials\u201d \u2192 \u201cOAuth client ID\u201d."));
+        instructions.add(new JLabel("5. Choose \u201cDesktop app\u201d as the application type."));
+        instructions.add(new JLabel("6. Copy the Client ID and paste it in the field below."));
+        instructions.add(new JLabel(" "));
+        instructions.add(openConsoleButton);
+        instructions.add(new JLabel(" "));
+        instructions.add(new JLabel("Google client ID:"));
+        instructions.add(clientIdField);
+
+        while (true) {
+            int choice = JOptionPane.showConfirmDialog(parent, instructions,
+                    "Google Sign-In Setup", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+            if (choice != JOptionPane.OK_OPTION) {
+                return null;
+            }
+            String entered = clientIdField.getText().trim();
+            if (!entered.isBlank()) {
+                preferences.put(GOOGLE_CLIENT_ID_KEY, entered);
+                return entered;
+            }
+            JOptionPane.showMessageDialog(parent, "Paste a Google client ID before continuing.",
+                    "Client ID required", JOptionPane.WARNING_MESSAGE);
         }
     }
 
